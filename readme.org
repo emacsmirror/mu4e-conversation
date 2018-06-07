@@ -25,3 +25,9 @@ From the headers view, call ~M-x mu4e-conversation~.
 Alternatively, bind it to a dedicated key or even replace mu4e default view command:
 
 : (define-key mu4e-headers-mode-map (kbd "RET") 'mu4e-conversation)
+
+* Screenshots
+
+[[mu4e-conversation/src/master/mu4e-conversation-linear.png][Linear view]]
+
+[[mu4e-conversation/src/master/mu4e-conversation-tree.png][Tree view]]
