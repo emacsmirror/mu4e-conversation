@@ -255,11 +255,11 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
                                   (format "%s <%s>" (car from) (cdr from)))
                                 (current-time-string (mu4e-message-field msg :date))
                                 (mu4e-message-field msg :flags))
-                        'face
-                        'mu4e-conversation-header)
+                        'face 'mu4e-conversation-header
+                        'msg msg)
             ;; TODO: Add button to display trimmed quote.
             (let ((s
-                   (propertize (mu4e-message-body-text msg) 'face sender-face)))
+                   (propertize (mu4e-message-body-text msg) 'face sender-face 'msg msg)))
               (when (memq 'unread (mu4e-message-field msg :flags))
                   (add-face-text-property 0 (length s) 'mu4e-conversation-unread nil s))
               s)
