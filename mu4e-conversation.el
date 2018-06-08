@@ -128,7 +128,6 @@ If less than 0, don't limit the number of colors."
     (define-key map (kbd "]") 'mu4e-conversation-next-message)
     (define-key map (kbd "V") 'mu4e-conversation-toggle-view)
     (define-key map (kbd "q") 'mu4e-conversation-quit)
-    ;; TODO: Bind "R" to "reply".
     ;; TODO: Should we reply to the selected message or to the last?  Make it an option: 'current, 'last, 'ask.
     ;; TODO: Binding to switch to regular view?
     ;; TODO: Bind "e" save-attachment.
@@ -258,12 +257,13 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
                         'face 'mu4e-conversation-header
                         'msg msg)
             ;; TODO: Add button to display trimmed quote.
+            ;; TODO: `mu4e-compose-reply' does not work when point is at end-of-buffer.
             (let ((s
                    (propertize (mu4e-message-body-text msg) 'face sender-face 'msg msg)))
               (when (memq 'unread (mu4e-message-field msg :flags))
                   (add-face-text-property 0 (length s) 'mu4e-conversation-unread nil s))
               s)
-            "\n")))
+            (propertize "\n" 'msg msg))))
 
 (defun mu4e-conversation-print-org-message (index)
   "Insert formatted message found at INDEX in `mu4e-conversation--thread'."
