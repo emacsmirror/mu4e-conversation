@@ -56,6 +56,11 @@ The second argument is the message index in
   "Settings for the mu4e conversation view."
   :group 'mu4e)
 
+(defface mu4e-conversation-unread
+  '((t :weight bold))
+  "Face for unread messages."
+  :group 'mu4e-conversation)
+
 (defface mu4e-conversation-sender-me
   '((t :inherit default))
   "Face for conversation message sent by yourself."
@@ -226,7 +231,7 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
   (let* ((msg (nth index mu4e-conversation--thread))
          (from (car (mu4e-message-field msg :from)))
          (from-me-p (member (cdr from) mu4e-user-mail-address-list))
-         (face (or (get-text-property (point) 'face)
+         (sender-face (or (get-text-property (point) 'face)
                    (and from-me-p 'mu4e-conversation-sender-me)
                    (mu4e-conversation--get-message-face index))))
     (insert (propertize (format "%s, %s %s\n"
@@ -238,13 +243,18 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
                         'face
                         'mu4e-conversation-header)
             ;; TODO: Add button to display trimmed quote.
-            (propertize (mu4e-message-body-text msg) 'face face)
+            (let ((s
+                   (propertize (mu4e-message-body-text msg) 'face sender-face)))
+              (when (memq 'unread (mu4e-message-field msg :flags))
+                  (add-face-text-property 0 (length s) 'mu4e-conversation-unread nil s))
+              s)
             "\n")))
 
 (defun mu4e-conversation-print-org-message (index)
   "Insert formatted message found at INDEX in `mu4e-conversation--thread'."
   ;; See the docstring of `mu4e-message-field-raw'.
   (unless (eq major-mode 'org-mode)
+    (insert "#+SEQ_TODO: UNREAD READ\n\n") ; TODO: Is it possible to set `org-todo-keywords' locally?
     (org-mode))
   (let* ((msg (nth index mu4e-conversation--thread))
          (msg-header (nth index mu4e-conversation--thread-headers))
@@ -252,8 +262,11 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
          (from-me-p (member (cdr from) mu4e-user-mail-address-list))
          (level (plist-get (mu4e-message-field msg-header :thread) :level))
          (org-level (make-string (1+ level) ?*)))
-    (insert (format "%s %s, %s %s\n"
+    (insert (format "%s %s%s, %s %s\n"
                     org-level
+                    (if (memq 'unread (mu4e-message-field msg :flags))
+                      "UNREAD "
+                      "")
                     (if from-me-p
                         mu4e-conversation-my-name
                       (format "%s <%s>" (car from) (cdr from)))
