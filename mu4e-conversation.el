@@ -116,6 +116,12 @@ The second argument is the message index in
   "Face for conversation message sent by someone else."
   :group 'mu4e-conversation)
 
+(defcustom mu4e-conversation-max-colors -1
+  "Max number of colors to use to colorize sender messages.
+If 0, don't use colors.
+If less than 0, don't limit the number of colors."
+  :type 'integer
+  :group 'mu4e-conversation)
 (defcustom mu4e-conversation-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "[") 'mu4e-conversation-previous-message)
@@ -220,7 +226,8 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
              (from-me-p (member (cdr from) mu4e-user-mail-address-list)))
         (unless (or from-me-p
                     (gethash sender-key sender-faces))
-          (unless (facep (intern (format "mu4e-conversation-sender-%s" face-index)))
+          (when (or (not (facep (intern (format "mu4e-conversation-sender-%s" face-index))))
+                    (< 0 mu4e-conversation-max-colors face-index))
             (setq face-index 1))
           (puthash sender-key
                    (intern (format "mu4e-conversation-sender-%s" face-index))
@@ -239,8 +246,9 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
          (from (car (mu4e-message-field msg :from)))
          (from-me-p (member (cdr from) mu4e-user-mail-address-list))
          (sender-face (or (get-text-property (point) 'face)
-                   (and from-me-p 'mu4e-conversation-sender-me)
-                   (mu4e-conversation--get-message-face index))))
+                          (and from-me-p 'mu4e-conversation-sender-me)
+                          (and (/= 0 mu4e-conversation-max-colors) (mu4e-conversation--get-message-face index))
+                          'default)))
     (insert (propertize (format "%s, %s %s\n"
                                 (if from-me-p
                                     mu4e-conversation-my-name
