@@ -116,7 +116,7 @@ The second argument is the message index in
     (define-key map (kbd "[") 'mu4e-conversation-previous-message)
     (define-key map (kbd "]") 'mu4e-conversation-next-message)
     (define-key map (kbd "V") 'mu4e-conversation-toggle-view)
-    ;; TODO: Kill window like 'mu4e-view-quit-buffer.
+    (define-key map (kbd "q") 'mu4e-conversation-quit)
     ;; TODO: Bind "R" to "reply".
     ;; TODO: Should we reply to the selected message or to the last?  Make it an option: 'current, 'last, 'ask.
     ;; TODO: Binding to switch to regular view?
@@ -152,6 +152,13 @@ messages.  A negative COUNT goes backwards."
       (while (and (goto-char (funcall move-function (point)))
                   (not (eq (get-text-property (point) 'face) 'mu4e-conversation-header))
                   (not (eobp)))))))
+
+(defun mu4e-conversation-quit ()
+  "Quit conversation window."
+  (interactive)
+  (unless (eq major-mode 'mu4e-view-mode)
+    (mu4e-view-mode))
+  (mu4e~view-quit-buffer))
 
 (defun mu4e-conversation-toggle-view ()
   "Switch between tree and linear view."
@@ -211,8 +218,9 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
 (defun mu4e-conversation-print-message (index)
   "Insert formatted message found at INDEX in `mu4e-conversation--thread'."
   ;; See the docstring of `mu4e-message-field-raw'.
-  (unless (eq major-mode 'fundamental-mode)
-    (fundamental-mode))
+  (unless (eq major-mode 'mu4e-view-mode)
+    (mu4e-view-mode)
+    (read-only-mode 0))
   (let* ((msg (nth index mu4e-conversation--thread))
          (from (car (mu4e-message-field msg :from)))
          (from-me-p (member (cdr from) mu4e-user-mail-address-list))
