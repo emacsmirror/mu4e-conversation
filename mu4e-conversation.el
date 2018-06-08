@@ -32,14 +32,10 @@
 ;; TODO: Only mark visible messages as read.
 ;; TODO: Indent user messages?
 ;; TODO: Detect subject changes.
-;; TODO: Support fill-paragraph.  See `mu4e-view-fill-long-lines'.
 
 ;;; Code:
 (require 'mu4e)
 (require 'rx)
-
-(defconst mu4e-conversation--buffer-name "*mu4e-conversation*"
-  "Name of the conversation view buffer.")
 
 (defvar mu4e-conversation-my-name "Me")
 
@@ -181,7 +177,7 @@ messages.  A negative COUNT goes backwards."
 (defun mu4e-conversation-show (&optional print-function)
   "Display the thread in the `mu4e-conversation--buffer-name' buffer."
   ;; See the docstring of `mu4e-message-field-raw'.
-  (switch-to-buffer (get-buffer-create mu4e-conversation--buffer-name))
+  (switch-to-buffer (get-buffer-create mu4e~view-buffer-name))
   (view-mode 0)
   (erase-buffer)
   (let ((current-message-pos 0)
