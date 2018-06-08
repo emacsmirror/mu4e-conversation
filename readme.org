@@ -22,9 +22,11 @@ Load the package with
 
 From the headers view, call ~M-x mu4e-conversation~.
 
-Alternatively, bind it to a dedicated key or even replace mu4e default view command:
+To fully toggle-replace ~mu4e-view~ with ~mu4e-conversation~ from any other
+command (e.g. ~mu4e-headers-next~, ~helm-mu~), call
 
-: (define-key mu4e-headers-mode-map (kbd "RET") 'mu4e-conversation)
+: M-x mu4e-conversation-toggle-globally
+
 
 * Screenshots
 

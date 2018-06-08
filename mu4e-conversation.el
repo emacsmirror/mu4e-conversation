@@ -314,7 +314,7 @@ The header handler is run for all messages before the found-handler.
 See `mu4e~proc-filter'"
   (push msg mu4e-conversation--thread-headers))
 
-(defun mu4e-conversation-erase-handler ()
+(defun mu4e-conversation-erase-handler (&optional _msg)
   "Don't clear the header buffer when viewing.")
 
 (defun mu4e-conversation-found-handler (_count)
@@ -322,27 +322,22 @@ See `mu4e~proc-filter'"
   (advice-remove mu4e-erase-func 'mu4e-conversation-erase-handler)
   (advice-remove mu4e-found-func 'mu4e-conversation-found-handler)
   ;; TODO: Check if current buffer is mu4e-headers?
-  ;; TODO: Don't use mu4e-view?
-  (if (= (length mu4e-conversation--thread-headers) 1)
-      (mu4e-headers-view-message)
-    (setq mu4e-conversation--thread nil)
-    (advice-add mu4e-view-func :override 'mu4e-conversation-view-handler)
-    (dolist (msg mu4e-conversation--thread-headers)
-      (let ((docid (mu4e-message-field msg :docid))
-            ;; decrypt (or not), based on `mu4e-decryption-policy'.
-            (decrypt
-             (and (member 'encrypted (mu4e-message-field msg :flags))
-                  (if (eq mu4e-decryption-policy 'ask)
-                      (yes-or-no-p (mu4e-format "Decrypt message?")) ; TODO: Never ask?
-                    mu4e-decryption-policy))))
-        (mu4e~proc-view docid mu4e-view-show-images decrypt)))))
+  (setq mu4e-conversation--thread nil)
+  (advice-add mu4e-view-func :override 'mu4e-conversation-view-handler)
+  (dolist (msg mu4e-conversation--thread-headers)
+    (let ((docid (mu4e-message-field msg :docid))
+          ;; decrypt (or not), based on `mu4e-decryption-policy'.
+          (decrypt
+           (and (member 'encrypted (mu4e-message-field msg :flags))
+                (if (eq mu4e-decryption-policy 'ask)
+                    (yes-or-no-p (mu4e-format "Decrypt message?")) ; TODO: Never ask?
+                  mu4e-decryption-policy))))
+      (mu4e~proc-view docid mu4e-view-show-images decrypt))))
 
 ;;;###autoload
-(defun mu4e-conversation ()
+(defun mu4e-conversation (&optional msg)
   (interactive)
-  (unless (eq major-mode 'mu4e-headers-mode)
-    (mu4e-error "Must be in mu4e-headers-mode (%S)" major-mode))
-  (setq mu4e-conversation--current-message (mu4e-message-at-point))
+  (setq mu4e-conversation--current-message (or msg (mu4e-message-at-point)))
   (unless mu4e-conversation--current-message
     (mu4e-warn "No message at point"))
   (setq mu4e-conversation--thread-headers nil)
@@ -351,13 +346,22 @@ See `mu4e~proc-filter'"
   (advice-add mu4e-found-func :override 'mu4e-conversation-found-handler)
   (mu4e~proc-find
    (funcall mu4e-query-rewrite-function
-            (format "msgid:%s" (mu4e-message-field (mu4e-message-at-point) :message-id)))
+            (format "msgid:%s" (mu4e-message-field
+                                mu4e-conversation--current-message
+                                :message-id)))
    'show-threads
    :date
    'ascending
    (not 'limited)
    'skip-duplicates
    'include-related))
+
+(defun mu4e-conversation-toggle-globally ()
+  "Toggle-replace `mu4e-view' with `mu4e-conversation' everywhere."
+  (interactive)
+  (if (eq mu4e-view-func 'mu4e-conversation)
+      (setq mu4e-view-func 'mu4e~headers-view-handler)
+    (setq mu4e-view-func 'mu4e-conversation)))
 
 (provide 'mu4e-conversation)
 ;;; mu4e-conversation.el ends here
