@@ -187,7 +187,8 @@ messages.  A negative COUNT goes backwards."
       (mu4e~view-show-images-maybe msg)
       (setq index (1+ index))
       (goto-char (point-max)))
-    (goto-char current-message-pos))
+    (goto-char current-message-pos)
+    (recenter))
   (view-mode 1)
   (mu4e-conversation-mode))
 
