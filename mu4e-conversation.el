@@ -32,6 +32,7 @@
 ;; TODO: Only mark visible messages as read.
 ;; TODO: Indent user messages?
 ;; TODO: Detect subject changes.
+;; TODO: Check out mu4e gnus view.
 
 ;;; Code:
 (require 'mu4e)
@@ -126,9 +127,8 @@ If less than 0, don't limit the number of colors."
     (define-key map (kbd "q") 'mu4e-conversation-quit)
     ;; TODO: Should we reply to the selected message or to the last?  Make it an option: 'current, 'last, 'ask.
     ;; TODO: Binding to switch to regular view?
-    ;; TODO: Bind "e" save-attachment.
     ;; TODO: Bind "#" to toggle-cite.
-    ;; TODO: Bind "h" to show-html.
+    ;; TODO: Bind "h" to show-html?
     map)
   "Map for `mu4e-conversation-mode'."
   :type 'key-sequence
@@ -254,6 +254,7 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
                                 (mu4e-message-field msg :flags))
                         'face 'mu4e-conversation-header
                         'msg msg)
+            (or (mu4e~view-construct-attachments-header msg) "")
             ;; TODO: Add button to display trimmed quote.
             ;; TODO: `mu4e-compose-reply' does not work when point is at end-of-buffer.
             (let ((s (propertize (mu4e-message-body-text msg) 'msg msg)))
