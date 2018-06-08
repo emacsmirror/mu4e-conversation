@@ -205,21 +205,26 @@ order and return corresponding face for e-mail at INDEX in
 E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
   (let* ((message (nth index mu4e-conversation--thread))
          (from (car (mu4e-message-field message :from)))
+         ;; The e-mail address is not enough as key since automated messaging
+         ;; system such as the one from github have the same address with
+         ;; different names.
+         (sender-key (concat (car from) (cdr from)))
          (sender-faces (make-hash-table :test 'equal))
          (face-index 1))
     (dotimes (i (1+ index))
       (let* ((msg (nth i mu4e-conversation--thread))
              (from (car (mu4e-message-field msg :from)))
+             (sender-key (concat (car from) (cdr from)))
              (from-me-p (member (cdr from) mu4e-user-mail-address-list)))
         (unless (or from-me-p
-                    (gethash (cdr from) sender-faces))
+                    (gethash sender-key sender-faces))
           (unless (facep (intern (format "mu4e-conversation-sender-%s" face-index)))
             (setq face-index 1))
-          (puthash (cdr from)
+          (puthash sender-key
                    (intern (format "mu4e-conversation-sender-%s" face-index))
                    sender-faces)
           (setq face-index (1+ face-index)))))
-    (gethash (cdr from) sender-faces)))
+    (gethash sender-key sender-faces)))
 
 ;; TODO: Propertize URLs.
 (defun mu4e-conversation-print-message (index)
