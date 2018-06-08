@@ -194,7 +194,9 @@ messages.  A negative COUNT goes backwards."
       (goto-char (point-max)))
     (goto-char current-message-pos)
     (recenter))
-  (setq header-line-format (mu4e-message-field (car mu4e-conversation--thread) :subject))
+  (setq header-line-format (propertize
+                            (mu4e-message-field (car mu4e-conversation--thread) :subject)
+                            'face 'bold))
   (view-mode 1)
   (mu4e-conversation-mode))
 
