@@ -29,7 +29,7 @@
 ;; used for viewing all e-mail messages of a thread in a single buffer.
 
 ;; TODO: Overrides are not commended.  Use unwind-protect to set handlers?  I don't think it would work.
-;; TODO: Mark visible messages as read.
+;; TODO: Only mark visible messages as read.
 ;; TODO: Indent user messages?
 ;; TODO: Detect subject changes.
 ;; TODO: Support fill-paragraph.  See `mu4e-view-fill-long-lines'.
@@ -185,6 +185,7 @@ messages.  A negative COUNT goes backwards."
                    mu4e-conversation-print-message-function)
                index)
       (mu4e~view-show-images-maybe msg)
+      (mu4e~view-mark-as-read-maybe msg)
       (setq index (1+ index))
       (goto-char (point-max)))
     (goto-char current-message-pos)
@@ -221,7 +222,7 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
   ;; See the docstring of `mu4e-message-field-raw'.
   (unless (eq major-mode 'mu4e-view-mode)
     (mu4e-view-mode)
-    (read-only-mode 0))
+    (read-only-mode 0))                 ; TODO: Set inhibit-read-only to t instead?
   (let* ((msg (nth index mu4e-conversation--thread))
          (from (car (mu4e-message-field msg :from)))
          (from-me-p (member (cdr from) mu4e-user-mail-address-list))
