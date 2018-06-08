@@ -174,7 +174,6 @@ messages.  A negative COUNT goes backwards."
   (switch-to-buffer (get-buffer-create mu4e-conversation--buffer-name))
   (view-mode 0)
   (erase-buffer)
-  (setq header-line-format (mu4e-message-field (car mu4e-conversation--thread) :subject))
   (let ((current-message-pos 0)
         (index 0))
     (dolist (msg mu4e-conversation--thread)
@@ -190,6 +189,7 @@ messages.  A negative COUNT goes backwards."
       (goto-char (point-max)))
     (goto-char current-message-pos)
     (recenter))
+  (setq header-line-format (mu4e-message-field (car mu4e-conversation--thread) :subject))
   (view-mode 1)
   (mu4e-conversation-mode))
 
