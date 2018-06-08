@@ -258,8 +258,8 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
                         'msg msg)
             ;; TODO: Add button to display trimmed quote.
             ;; TODO: `mu4e-compose-reply' does not work when point is at end-of-buffer.
-            (let ((s
-                   (propertize (mu4e-message-body-text msg) 'face sender-face 'msg msg)))
+            (let ((s (propertize (mu4e-message-body-text msg) 'msg msg)))
+              (add-face-text-property 0 (length s) sender-face nil s)
               (when (memq 'unread (mu4e-message-field msg :flags))
                   (add-face-text-property 0 (length s) 'mu4e-conversation-unread nil s))
               s)
