@@ -190,12 +190,14 @@ messages.  A negative COUNT goes backwards."
                    mu4e-conversation-print-message-function)
                index)
       (mu4e~view-show-images-maybe msg)
+      (goto-char (point-max))
+      (insert (propertize "\n" 'msg msg)) ; Insert a final newline after potential images.
       (mu4e~view-mark-as-read-maybe msg)
       (setq index (1+ index))
       (goto-char (point-max)))
     (goto-char current-message-pos)
     (recenter))
-  (mu4e~view-make-urls-clickable)
+  (mu4e~view-make-urls-clickable)       ; TODO: Don't discard sender face.
   (setq header-line-format (propertize
                             (mu4e-message-field (car mu4e-conversation--thread) :subject)
                             'face 'bold))
@@ -257,9 +259,8 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
             (let ((s (propertize (mu4e-message-body-text msg) 'msg msg)))
               (add-face-text-property 0 (length s) sender-face nil s)
               (when (memq 'unread (mu4e-message-field msg :flags))
-                  (add-face-text-property 0 (length s) 'mu4e-conversation-unread nil s))
-              s)
-            (propertize "\n" 'msg msg))))
+                (add-face-text-property 0 (length s) 'mu4e-conversation-unread nil s))
+              s))))
 
 (defun mu4e-conversation-print-org-message (index)
   "Insert formatted message found at INDEX in `mu4e-conversation--thread'."
