@@ -199,6 +199,7 @@ messages.  A negative COUNT goes backwards."
       (goto-char (point-max)))
     (goto-char current-message-pos)
     (recenter))
+  (mu4e~view-make-urls-clickable)
   (setq header-line-format (propertize
                             (mu4e-message-field (car mu4e-conversation--thread) :subject)
                             'face 'bold))
@@ -234,7 +235,6 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
           (setq face-index (1+ face-index)))))
     (gethash sender-key sender-faces)))
 
-;; TODO: Propertize URLs.
 (defun mu4e-conversation-print-message (index)
   "Insert formatted message found at INDEX in `mu4e-conversation--thread'."
   ;; See the docstring of `mu4e-message-field-raw'.
