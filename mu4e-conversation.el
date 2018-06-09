@@ -6,7 +6,7 @@
 ;; Maintainer: Pierre Neidhardt <ambrevar@gmail.com>
 ;; URL: https://notabug.org/Ambrevar/mu4e-conversation
 ;; Version: 0.0.1
-;; Package-Requires: ((emacs "25.1") (mu4e "1.0"))
+;; Package-Requires: ((emacs "25.1"))
 ;; Keywords: mail, convenience, mu4e
 
 ;; This file is not part of GNU Emacs.
