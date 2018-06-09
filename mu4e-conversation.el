@@ -37,6 +37,7 @@
 ;;; Code:
 (require 'mu4e)
 (require 'rx)
+(require 'outline)
 
 (defvar mu4e-conversation-my-name "Me")
 
@@ -64,48 +65,43 @@ The second argument is the message index in
   :group 'mu4e-conversation)
 
 (defface mu4e-conversation-sender-1
-  '((t :background "#335533"))
+  `((t :foreground ,(face-foreground 'outline-1)))
   "Face for conversation message from the 1st sender who is not yourself."
   :group 'mu4e-conversation)
 
 (defface mu4e-conversation-sender-2
-  '((t :background "#553333"))
+  `((t :foreground ,(face-foreground 'outline-2)))
   "Face for conversation message from the 2rd sender who is not yourself."
   :group 'mu4e-conversation)
 
 (defface mu4e-conversation-sender-3
-  '((t :background "#333355"))
+  `((t :foreground ,(face-foreground 'outline-3)))
   "Face for conversation message from the 3rd sender who is not yourself."
   :group 'mu4e-conversation)
 
 (defface mu4e-conversation-sender-4
-  '((t :background "#888833"))
+  `((t :foreground ,(face-foreground 'outline-4)))
   "Face for conversation message from the 4th sender who is not yourself."
   :group 'mu4e-conversation)
 
 (defface mu4e-conversation-sender-5
-  '((t :background "#4a708b"))
+  `((t :foreground ,(face-foreground 'outline-5)))
   "Face for conversation message from the 5th sender who is not yourself."
   :group 'mu4e-conversation)
 
 (defface mu4e-conversation-sender-6
-  '((t :background "#8b4500"))
+  `((t :foreground ,(face-foreground 'outline-6)))
   "Face for conversation message from the 6th sender who is not yourself."
   :group 'mu4e-conversation)
 
 (defface mu4e-conversation-sender-7
-  '((t :background "#551a8b"))
+  `((t :foreground ,(face-foreground 'outline-7)))
   "Face for conversation message from the 7th sender who is not yourself."
   :group 'mu4e-conversation)
 
 (defface mu4e-conversation-sender-8
-  '((t :background "#8b0a50"))
+  `((t :foreground ,(face-foreground 'outline-8)))
   "Face for conversation message from the 8th sender who is not yourself."
-  :group 'mu4e-conversation)
-
-(defface mu4e-conversation-sender-9
-  '((t :background "#00008b"))
-  "Face for conversation message from the 9th sender who is not yourself."
   :group 'mu4e-conversation)
 
 (defface mu4e-conversation-header
