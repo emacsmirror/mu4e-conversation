@@ -350,13 +350,5 @@ See `mu4e~proc-filter'"
    'skip-duplicates
    'include-related))
 
-;;;###autoload
-(defun mu4e-conversation-toggle-globally ()
-  "Toggle-replace `mu4e-view' with `mu4e-conversation' everywhere."
-  (interactive)
-  (if (eq mu4e-view-func 'mu4e-conversation)
-      (setq mu4e-view-func 'mu4e~headers-view-handler)
-    (setq mu4e-view-func 'mu4e-conversation)))
-
 (provide 'mu4e-conversation)
 ;;; mu4e-conversation.el ends here
