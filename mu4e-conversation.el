@@ -245,6 +245,16 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
           (setq face-index (1+ face-index)))))
     (gethash sender-key sender-faces)))
 
+(defun mu4e-conversation--from-name (message)
+  "Return a string describing the sender (the 'from' field) of MESSAGE."
+  (let* ((from (car (mu4e-message-field message :from)))
+         (from-me-p (member (cdr from) mu4e-user-mail-address-list)))
+    (if (and mu4e-conversation-own-name from-me-p)
+        mu4e-conversation-own-name
+      (concat (car from)
+              (when (car from) " ")
+              (format "<%s>" (cdr from))))))
+
 (defun mu4e-conversation-print-message-linear (index)
   "Insert formatted message found at INDEX in `mu4e-conversation--thread'."
   ;; See the docstring of `mu4e-message-field-raw'.
@@ -259,9 +269,7 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
                           (and (/= 0 mu4e-conversation-max-colors) (mu4e-conversation--get-message-face index))
                           'default)))
     (insert (propertize (format "%s, %s %s\n"
-                                (if (and mu4e-conversation-own-name from-me-p)
-                                    mu4e-conversation-own-name
-                                  (format "%s <%s>" (car from) (cdr from)))
+                                (mu4e-conversation--from-name msg)
                                 (current-time-string (mu4e-message-field msg :date))
                                 (mu4e-message-field msg :flags))
                         'face 'mu4e-conversation-header
@@ -290,11 +298,9 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
     (insert (format "%s %s%s, %s %s\n"
                     org-level
                     (if (memq 'unread (mu4e-message-field msg :flags))
-                      "UNREAD "
+                        "UNREAD "
                       "")
-                    (if (and mu4e-conversation-own-name from-me-p)
-                        mu4e-conversation-own-name
-                      (format "%s <%s>" (car from) (cdr from)))
+                    (mu4e-conversation--from-name msg)
                     (current-time-string (mu4e-message-field msg :date))
                     (mu4e-message-field msg :flags))
             ;; TODO: Put quote in subsection / property?
