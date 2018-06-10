@@ -43,10 +43,10 @@
 (defvar mu4e-conversation--thread nil)
 (defvar mu4e-conversation--current-message nil)
 
-(defvar mu4e-conversation-print-message-function 'mu4e-conversation-print-message
-  "Function that takes a message and insert it's content in the current buffer.
-The second argument is the message index in
-`mu4e-conversation--thread', counting from 0.")
+(defvar mu4e-conversation-print-message-function 'mu4e-conversation-print-message-linear
+  "Function that insert the formatted content of a message in the current buffer.
+The argument is the message index in `mu4e-conversation--thread',
+counting from 0.")
 
 (defgroup mu4e-conversation nil
   "Settings for the mu4e conversation view."
@@ -120,6 +120,8 @@ If 0, don't use colors.
 If less than 0, don't limit the number of colors."
   :type 'integer
   :group 'mu4e-conversation)
+
+;; TODO: Maybe we need multiple maps: a common one, and one for each view.
 (defcustom mu4e-conversation-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "[") 'mu4e-conversation-previous-message)
@@ -170,12 +172,12 @@ messages.  A negative COUNT goes backwards."
 (defun mu4e-conversation-toggle-view ()
   "Switch between tree and linear view."
   (interactive)
-  (mu4e-conversation-show
+  (mu4e-conversation-show-thread
    (if (eq major-mode 'org-mode)
-       'mu4e-conversation-print-message
-     'mu4e-conversation-print-org-message)))
+       'mu4e-conversation-print-message-linear
+     'mu4e-conversation-print-message-tree)))
 
-(defun mu4e-conversation-show (&optional print-function)
+(defun mu4e-conversation-show-thread (&optional print-function)
   "Display the thread in the `mu4e-conversation--buffer-name' buffer."
   ;; See the docstring of `mu4e-message-field-raw'.
   (switch-to-buffer (get-buffer-create mu4e~view-buffer-name))
@@ -234,7 +236,7 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
           (setq face-index (1+ face-index)))))
     (gethash sender-key sender-faces)))
 
-(defun mu4e-conversation-print-message (index)
+(defun mu4e-conversation-print-message-linear (index)
   "Insert formatted message found at INDEX in `mu4e-conversation--thread'."
   ;; See the docstring of `mu4e-message-field-raw'.
   (unless (eq major-mode 'mu4e-view-mode)
@@ -255,7 +257,7 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
                                 (mu4e-message-field msg :flags))
                         'face 'mu4e-conversation-header
                         'msg msg)
-            (or (mu4e~view-construct-attachments-header msg) "")
+            (or (mu4e~view-construct-attachments-header msg) "") ; TODO: Append newline?
             ;; TODO: Add button to display trimmed quote.
             ;; TODO: `mu4e-compose-reply' does not work when point is at end-of-buffer.
             (let ((s (propertize (mu4e-message-body-text msg) 'msg msg)))
@@ -264,7 +266,7 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
                 (add-face-text-property 0 (length s) 'mu4e-conversation-unread nil s))
               s))))
 
-(defun mu4e-conversation-print-org-message (index)
+(defun mu4e-conversation-print-message-tree (index)
   "Insert formatted message found at INDEX in `mu4e-conversation--thread'."
   ;; See the docstring of `mu4e-message-field-raw'.
   (unless (eq major-mode 'org-mode)
@@ -305,7 +307,7 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
       (unless (window-live-p viewwin)
         (mu4e-error "Cannot get a conversation window"))
       (select-window viewwin))
-    (mu4e-conversation-show)))
+    (mu4e-conversation-show-thread)))
 
 (defun mu4e-conversation-header-handler (msg)
   "Store thread messages.
