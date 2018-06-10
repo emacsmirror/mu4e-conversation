@@ -39,8 +39,6 @@
 (require 'rx)
 (require 'outline)
 
-(defvar mu4e-conversation-my-name "Me")
-
 (defvar mu4e-conversation--thread-headers nil)
 (defvar mu4e-conversation--thread nil)
 (defvar mu4e-conversation--current-message nil)
@@ -53,6 +51,13 @@ The second argument is the message index in
 (defgroup mu4e-conversation nil
   "Settings for the mu4e conversation view."
   :group 'mu4e)
+
+(defcustom mu4e-conversation-own-name "Me"
+  "Name to display instead of your own name.
+This applies to addresses matching `mu4e-user-mail-address-list'.
+If nil, the name value is not substituted."
+  :type 'string
+  :group 'mu4e-conversation)
 
 (defface mu4e-conversation-unread
   '((t :weight bold))
@@ -243,8 +248,8 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
                           (and (/= 0 mu4e-conversation-max-colors) (mu4e-conversation--get-message-face index))
                           'default)))
     (insert (propertize (format "%s, %s %s\n"
-                                (if from-me-p
-                                    mu4e-conversation-my-name
+                                (if (and mu4e-conversation-own-name from-me-p)
+                                    mu4e-conversation-own-name
                                   (format "%s <%s>" (car from) (cdr from)))
                                 (current-time-string (mu4e-message-field msg :date))
                                 (mu4e-message-field msg :flags))
@@ -276,8 +281,8 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
                     (if (memq 'unread (mu4e-message-field msg :flags))
                       "UNREAD "
                       "")
-                    (if from-me-p
-                        mu4e-conversation-my-name
+                    (if (and mu4e-conversation-own-name from-me-p)
+                        mu4e-conversation-own-name
                       (format "%s <%s>" (car from) (cdr from)))
                     (current-time-string (mu4e-message-field msg :date))
                     (mu4e-message-field msg :flags))
