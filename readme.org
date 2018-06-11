@@ -29,6 +29,8 @@ command (e.g. ~mu4e-headers-next~, ~helm-mu~), call
 
 * Screenshots
 
-[[mu4e-conversation/src/master/mu4e-conversation-linear.png][Linear view]]
+  #+ATTR_HTML: :width 800px
+  [[./mu4e-conversation-linear.png]]
 
-[[mu4e-conversation/src/master/mu4e-conversation-tree.png][Tree view]]
+  #+ATTR_HTML: :width 800px
+  [[./mu4e-conversation-tree.png]]
