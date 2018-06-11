@@ -4,7 +4,7 @@
 
 ;; Author: Pierre Neidhardt <ambrevar@gmail.com>
 ;; Maintainer: Pierre Neidhardt <ambrevar@gmail.com>
-;; URL: https://notabug.org/Ambrevar/mu4e-conversation
+;; URL: https://gitlab.com/Ambrevar/mu4e-conversation
 ;; Version: 0.0.1
 ;; Package-Requires: ((emacs "25.1"))
 ;; Keywords: mail, convenience, mu4e
