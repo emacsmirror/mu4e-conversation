@@ -128,9 +128,9 @@ If less than 0, don't limit the number of colors."
     (define-key map (kbd "]") 'mu4e-conversation-next-message)
     (define-key map (kbd "V") 'mu4e-conversation-toggle-view)
     (define-key map (kbd "q") 'mu4e-conversation-quit)
+    (define-key map (kbd "#") 'mu4e-conversation-toggle-hide-cited)
     ;; TODO: Should we reply to the selected message or to the last?  Make it an option: 'current, 'last, 'ask.
     ;; TODO: Binding to switch to regular view?
-    ;; TODO: Bind "#" to toggle-cite.
     ;; TODO: Bind "h" to show-html?
     map)
   "Map for `mu4e-conversation-mode'."
@@ -161,6 +161,14 @@ messages.  A negative COUNT goes backwards."
       (while (and (goto-char (funcall move-function (point)))
                   (not (eq (get-text-property (point) 'face) 'mu4e-conversation-header))
                   (not (eobp)))))))
+
+(defun mu4e-conversation-toggle-hide-cited ()
+  "Toggle hiding of cited lines in the message body."
+  (interactive)
+  (if (and (listp buffer-invisibility-spec)
+           (member '(mu4e-conversation-quote . t) buffer-invisibility-spec))
+      (remove-from-invisibility-spec '(mu4e-conversation-quote . t))
+    (add-to-invisibility-spec '(mu4e-conversation-quote . t))))
 
 (defun mu4e-conversation-quit ()
   "Quit conversation window."
@@ -255,6 +263,20 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
               (when (car from) " ")
               (format "<%s>" (cdr from))))))
 
+(defun mu4e-conversation--propertize-quote (message)
+  "Trim the replied-to emails quoted at the end of message."
+  (add-to-invisibility-spec '(mu4e-conversation-quote . t))
+  (when (string-match (rx (+ line-start
+                             (+ ">")
+                             (* not-newline)
+                             (? ?\n))
+                          (* (or space blank ?\n))
+                          (or
+                           string-end
+                           (and line-start  "--" (* space) ?\n (* anything))))
+                      message)
+    (add-text-properties (match-beginning 0) (match-end 0) '(invisible mu4e-conversation-quote) message)))
+
 (defun mu4e-conversation-print-message-linear (index)
   "Insert formatted message found at INDEX in `mu4e-conversation--thread'."
   ;; See the docstring of `mu4e-message-field-raw'.
@@ -275,10 +297,11 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
                         'face 'mu4e-conversation-header
                         'msg msg)
             (or (mu4e~view-construct-attachments-header msg) "") ; TODO: Append newline?
-            ;; TODO: Add button to display trimmed quote.
+            ;; TODO: Add button to display trimmed quote of current message only.
             ;; TODO: `mu4e-compose-reply' does not work when point is at end-of-buffer.
             (let ((s (propertize (mu4e-message-body-text msg) 'msg msg)))
               (add-face-text-property 0 (length s) sender-face nil s)
+              (mu4e-conversation--propertize-quote s)
               (when (memq 'unread (mu4e-message-field msg :flags))
                 (add-face-text-property 0 (length s) 'mu4e-conversation-unread nil s))
               s))))
