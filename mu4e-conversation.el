@@ -168,7 +168,8 @@ messages.  A negative COUNT goes backwards."
   (if (and (listp buffer-invisibility-spec)
            (member '(mu4e-conversation-quote . t) buffer-invisibility-spec))
       (remove-from-invisibility-spec '(mu4e-conversation-quote . t))
-    (add-to-invisibility-spec '(mu4e-conversation-quote . t))))
+    (add-to-invisibility-spec '(mu4e-conversation-quote . t)))
+  (force-window-update))
 
 (defun mu4e-conversation-quit ()
   "Quit conversation window."
@@ -221,6 +222,7 @@ messages.  A negative COUNT goes backwards."
   (setq header-line-format (propertize
                             (mu4e-message-field (car mu4e-conversation--thread) :subject)
                             'face 'bold))
+  (add-to-invisibility-spec '(mu4e-conversation-quote . t))
   (view-mode 1)
   (mu4e-conversation-mode))
 
@@ -265,17 +267,39 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
 
 (defun mu4e-conversation--propertize-quote (message)
   "Trim the replied-to emails quoted at the end of message."
-  (add-to-invisibility-spec '(mu4e-conversation-quote . t))
-  (when (string-match (rx (+ line-start
-                             (+ ">")
-                             (* not-newline)
-                             (? ?\n))
-                          (* (or space blank ?\n))
-                          (or
-                           string-end
-                           (and line-start  "--" (* space) ?\n (* anything))))
-                      message)
-    (add-text-properties (match-beginning 0) (match-end 0) '(invisible mu4e-conversation-quote) message)))
+  (with-temp-buffer
+    (insert message)
+    (goto-char (point-min))
+    ;; Regexp seemed to be doomed to kill performance here, so we do it manually
+    ;; instead.  It's not much longer anyways.
+    (let (start)
+      (while (not (eobp))
+        (while (and (not (eobp)) (not (= (following-char) ?>)))
+          (forward-line))
+        (unless (eobp)
+          (setq start (point))
+          (while (and (not (eobp)) (= (following-char) ?>))
+            (forward-line))
+          (unless (eobp)
+            ;; Optional gap.
+            (while (and (not (eobp))
+                        (string-match "^[ \t]*$" (buffer-substring-no-properties
+                                                  (line-beginning-position)
+                                                  (line-end-position))))
+              (forward-line))
+            (if (or (eobp)
+                    (string-match "^--[ \t]*$" (buffer-substring-no-properties
+                                                (line-beginning-position)
+                                                (line-end-position))))
+                ;; Found signature or end of buffer, no need to continue.
+                (goto-char (point-max))
+              ;; Restart the loop.
+              (setq start nil)))))
+      (when start
+        ;; Buffer functions like (point) return 1-based indices while string
+        ;; functions use 0-based indices.
+        (add-text-properties (1- start) (length message)
+                             '(invisible mu4e-conversation-quote) message)))))
 
 (defun mu4e-conversation-print-message-linear (index)
   "Insert formatted message found at INDEX in `mu4e-conversation--thread'."
