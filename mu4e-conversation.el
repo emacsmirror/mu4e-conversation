@@ -153,6 +153,14 @@ If less than 0, don't limit the number of colors."
 (defcustom mu4e-conversation-tree-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "q") 'mu4e-conversation-quit)
+    (define-key map (kbd "C") 'mu4e-compose-new)
+    (define-key map (kbd "R") 'mu4e-compose-reply)
+    (define-key map (kbd "E") 'mu4e-compose-edit)
+    (define-key map (kbd "F") 'mu4e-compose-forward)
+    (define-key map (kbd ".") 'mu4e-view-raw-message)
+    (define-key map (kbd "A") 'mu4e-view-attachment-action)
+    (define-key map (kbd "a") 'mu4e-view-action)
+    (define-key map (kbd "|") 'mu4e-view-pipe)
     map)
   "Map for `mu4e-conversation' in tree view."
   :type 'key-sequence
