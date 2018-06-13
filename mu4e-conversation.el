@@ -298,12 +298,14 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
           (unless (eobp)
             ;; Optional gap.
             (while (and (not (eobp))
-                        (string-match "^[ \t]*$" (buffer-substring-no-properties
+                        (string-match (rx line-start (* (any space)) line-end)
+                                      (buffer-substring-no-properties
                                                   (line-beginning-position)
                                                   (line-end-position))))
               (forward-line))
             (if (or (eobp)
-                    (string-match "^--[ \t]*$" (buffer-substring-no-properties
+                    (string-match (rx line-start "--" (* (any space)) line-end)
+                                  (buffer-substring-no-properties
                                                 (line-beginning-position)
                                                 (line-end-position))))
                 ;; Found signature or end of buffer, no need to continue.
