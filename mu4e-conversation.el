@@ -355,8 +355,8 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
   (unless (eq major-mode 'org-mode)
     (insert "#+SEQ_TODO: UNREAD READ\n\n") ; TODO: Is it possible to set `org-todo-keywords' locally?
     (org-mode)
-    ;; TODO: backtab in underfined.
-    (use-local-map (make-composed-keymap mu4e-conversation-tree-map mu4e-conversation-map)))
+    (use-local-map (make-composed-keymap (list mu4e-conversation-tree-map mu4e-conversation-map)
+                                         org-mode-map)))
   (let* ((msg (nth index mu4e-conversation--thread))
          (msg-header (nth index mu4e-conversation--thread-headers))
          (from (car (mu4e-message-field msg :from)))
