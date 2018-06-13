@@ -158,10 +158,12 @@ If less than 0, don't limit the number of colors."
   :type 'key-sequence
   :group 'mu4e-conversation)
 
-(defun mu4e-conversation-previous-message ()
-  "Go to previous message in linear view."
-  (interactive)
-  (mu4e-conversation-next-message -1))
+(defun mu4e-conversation-previous-message (&optional count)
+  "Go to previous message in linear view.
+With numeric prefix argument or if COUNT is given, move that many
+messages.  A negative COUNT goes forwards."
+  (interactive "p")
+  (mu4e-conversation-next-message (if count (- count) -1)))
 
 (defun mu4e-conversation-next-message (&optional count)
   "Go to next message in linear view.
