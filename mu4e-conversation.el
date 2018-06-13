@@ -161,6 +161,7 @@ If less than 0, don't limit the number of colors."
     (define-key map (kbd "A") 'mu4e-view-attachment-action)
     (define-key map (kbd "a") 'mu4e-view-action)
     (define-key map (kbd "|") 'mu4e-view-pipe)
+    (define-key map (kbd "M-q") 'mu4e-view-fill-long-lines)
     map)
   "Map for `mu4e-conversation' in tree view."
   :type 'key-sequence
