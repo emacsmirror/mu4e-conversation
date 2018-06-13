@@ -363,22 +363,44 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
          (from-me-p (member (cdr from) mu4e-user-mail-address-list))
          (level (plist-get (mu4e-message-field msg-header :thread) :level))
          (org-level (make-string (1+ level) ?*)))
-    (insert (format "%s %s%s, %s %s\n"
-                    org-level
-                    (if (memq 'unread (mu4e-message-field msg :flags))
-                        "UNREAD "
-                      "")
-                    (mu4e-conversation--from-name msg)
-                    (current-time-string (mu4e-message-field msg :date))
-                    (mu4e-message-field msg :flags))
-            ;; TODO: Put quote in subsection / property?
-            ;; Prefix "*" at the beginning of lines with a space to prevent them
-            ;; from being interpreted as Org sections.
-            ;; TODO: Add properties.
-            ;; TODO: Replace ">" with ":"?
-            (replace-regexp-in-string (rx line-start "*") " *"
-                                      (mu4e-message-body-text msg))
-            "\n")))
+    (let ((header (format "%s %s%s, %s %s\n"
+                          org-level
+                          (if (memq 'unread (mu4e-message-field msg :flags))
+                              "UNREAD "
+                            "")
+                          (mu4e-conversation--from-name msg)
+                          (current-time-string (mu4e-message-field msg :date))
+                          (mu4e-message-field msg :flags)))
+          (body
+           (concat
+            ;; Use Org syntax for quoting.  TODO: How to nest quotes?
+            (replace-regexp-in-string
+             (rx line-start "--8<---------------cut here---------------start------------->8---" line-end) "#+begin_src"
+             (replace-regexp-in-string
+              (rx line-start "--8<---------------cut here---------------end--------------->8---" line-end) "#+end_src"
+              (replace-regexp-in-string
+               (rx line-start ">" (* space)) ": "
+               ;; Prefix "*" at the beginning of lines with a space to prevent them
+               ;; from being interpreted as Org sections.
+               (replace-regexp-in-string
+                (rx line-start "*") " *"
+                (mu4e-message-body-text msg)))))
+            "\n"
+            (let ((attachments (mu4e~view-construct-attachments-header msg)))
+              ;; TODO: Propertize attachments.
+              (if attachments
+                  (format "
+:PROPERTIES:
+:ATTACHMENTS: %s
+:END:
+"
+                          attachments)
+                "")))))
+      ;; TODO: Put cited text and attachments in subsection / property?
+      ;; To use mu4e-conversation-unread on body, we would need to override Org faces.
+      (let ((s (concat header body)))
+        (add-text-properties 0 (length s) (list 'msg msg) s)
+        (insert s)))))
 
 (defun mu4e-conversation-view-handler (msg)
   "Handler function for displaying a message."
