@@ -142,8 +142,8 @@ If less than 0, don't limit the number of colors."
 
 (defcustom mu4e-conversation-linear-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "[") 'mu4e-conversation-previous-message) ; TODO: Don't override "previous-unread".
-    (define-key map (kbd "]") 'mu4e-conversation-next-message)
+    (define-key map (kbd "C-c C-p") 'mu4e-conversation-previous-message)
+    (define-key map (kbd "C-c C-n") 'mu4e-conversation-next-message)
     (define-key map (kbd "q") 'mu4e~view-quit-buffer)
     map)
   "Map for `mu4e-conversation' in linear view."
@@ -320,7 +320,6 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
 
 (defun mu4e-conversation-print-message-linear (index)
   "Insert formatted message found at INDEX in `mu4e-conversation--thread'."
-  ;; See the docstring of `mu4e-message-field-raw'.
   (unless (eq major-mode 'mu4e-view-mode)
     (mu4e-view-mode)
     (use-local-map (make-composed-keymap mu4e-conversation-linear-map mu4e-conversation-map)))
@@ -349,7 +348,6 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
 
 (defun mu4e-conversation-print-message-tree (index)
   "Insert formatted message found at INDEX in `mu4e-conversation--thread'."
-  ;; See the docstring of `mu4e-message-field-raw'.
   (unless (eq major-mode 'org-mode)
     (insert "#+SEQ_TODO: UNREAD READ\n\n") ; TODO: Is it possible to set `org-todo-keywords' locally?
     (org-mode)
