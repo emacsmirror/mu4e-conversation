@@ -334,7 +334,8 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
   "Insert formatted message found at INDEX in `mu4e-conversation--thread'."
   (unless (eq major-mode 'mu4e-view-mode)
     (mu4e-view-mode)
-    (use-local-map (make-composed-keymap mu4e-conversation-linear-map mu4e-conversation-map)))
+    (use-local-map (make-composed-keymap (list mu4e-conversation-linear-map mu4e-conversation-map)
+                                         mu4e-view-mode-map)))
   (let* ((msg (nth index mu4e-conversation--thread))
          (from (car (mu4e-message-field msg :from)))
          (from-me-p (member (cdr from) mu4e-user-mail-address-list))
@@ -392,6 +393,7 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
                ;; from being interpreted as Org sections.
                (replace-regexp-in-string
                 (rx line-start "*") " *"
+                ;; TODO: Propertize HTML links.
                 (mu4e-message-body-text msg)))))
             "\n"
             (let ((attachments (mu4e~view-construct-attachments-header msg)))
