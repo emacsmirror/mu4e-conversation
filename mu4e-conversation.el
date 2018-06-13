@@ -221,6 +221,7 @@ messages.  A negative COUNT goes backwards."
          (mu4e-conversation--thread-headers (funcall filter mu4e-conversation--thread-headers))
          (inhibit-read-only t))
     (erase-buffer)
+    (delete-all-overlays)
     (dolist (msg mu4e-conversation--thread)
       (when (= (mu4e-message-field msg :docid)
                (mu4e-message-field mu4e-conversation--current-message :docid))
@@ -236,7 +237,8 @@ messages.  A negative COUNT goes backwards."
       (goto-char (point-max)))
     (goto-char current-message-pos)
     (recenter)
-    (mu4e~view-make-urls-clickable)     ; TODO: Don't discard sender face.
+    (unless (eq major-mode 'org-mode)
+      (mu4e~view-make-urls-clickable))     ; TODO: Don't discard sender face.
     (setq header-line-format (propertize
                               (mu4e-message-field (car mu4e-conversation--thread) :subject)
                               'face 'bold))
@@ -353,6 +355,7 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
   (unless (eq major-mode 'org-mode)
     (insert "#+SEQ_TODO: UNREAD READ\n\n") ; TODO: Is it possible to set `org-todo-keywords' locally?
     (org-mode)
+    ;; TODO: backtab in underfined.
     (use-local-map (make-composed-keymap mu4e-conversation-tree-map mu4e-conversation-map)))
   (let* ((msg (nth index mu4e-conversation--thread))
          (msg-header (nth index mu4e-conversation--thread-headers))
@@ -371,6 +374,8 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
             ;; TODO: Put quote in subsection / property?
             ;; Prefix "*" at the beginning of lines with a space to prevent them
             ;; from being interpreted as Org sections.
+            ;; TODO: Add properties.
+            ;; TODO: Replace ">" with ":"?
             (replace-regexp-in-string (rx line-start "*") " *"
                                       (mu4e-message-body-text msg))
             "\n")))
