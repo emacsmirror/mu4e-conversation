@@ -147,6 +147,8 @@ If less than 0, don't limit the number of colors."
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-p") 'mu4e-conversation-previous-message)
     (define-key map (kbd "C-c C-n") 'mu4e-conversation-next-message)
+    (define-key map (kbd "e") 'mu4e-conversation-save-attachment)
+    (define-key map (kbd "o") 'mu4e-conversation-open-attachment)
     (define-key map (kbd "q") 'mu4e~view-quit-buffer)
     map)
   "Map for `mu4e-conversation' in linear view."
@@ -155,6 +157,8 @@ If less than 0, don't limit the number of colors."
 
 (defcustom mu4e-conversation-tree-map
   (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "e") 'mu4e-conversation-save-attachment)
+    (define-key map (kbd "o") 'mu4e-conversation-open-attachment)
     (define-key map (kbd "q") 'mu4e-conversation-quit)
     (define-key map (kbd "C") 'mu4e-compose-new)
     (define-key map (kbd "R") 'mu4e-compose-reply)
@@ -169,6 +173,20 @@ If less than 0, don't limit the number of colors."
   "Map for `mu4e-conversation' in tree view."
   :type 'key-sequence
   :group 'mu4e-conversation)
+
+(defun mu4e-conversation-save-attachment (&optional msg)
+  "Same as `mu4e-view-save-attachment-multi' but works for message at point."
+  (interactive)
+  (setq msg (or msg (mu4e-message-at-point)))
+  (mu4e~view-construct-attachments-header msg)
+  (mu4e-view-save-attachment-multi))
+
+(defun mu4e-conversation-open-attachment (&optional msg)
+  "Same as `mu4e-view-open-attachment-multi' but works for message at point."
+  (interactive)
+  (setq msg (or msg (mu4e-message-at-point)))
+  (mu4e~view-construct-attachments-header msg)
+  (mu4e-view-open-attachment))
 
 (defun mu4e-conversation-previous-message (&optional count)
   "Go to previous message in linear view.
