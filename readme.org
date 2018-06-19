@@ -28,7 +28,22 @@ linear and tree view.
 To fully replace ~mu4e-view~ with ~mu4e-conversation~ from any other command
 (e.g. ~mu4e-headers-next~, ~helm-mu~), call
 
-: (setq mu4e-view-func 'mu4e-conversation)
+: (mu4e-conversation-init)
+
+* Compose a reply in-buffer
+
+The last section is writable.
+
+Call ~mu4e-conversation-send~ (=C-c C-c= by default) to send the message.
+
+When the region is active anywhere in the thread, ~mu4e-conversation-cite~
+(=<return>= by default) will append the selected text as citation to the message
+being composed.
+
+* Multiple views
+
+You can view and multiple replies at thee same time by renaming the buffer with
+~M-x rename-buffer~.
 
 * Screenshots
 
