@@ -51,13 +51,17 @@
 ;; TODO: Save using "save-buffer"?  This would allow different bindings to work
 ;; transparently (e.g. ":w" with Evil).  Problem is that the draft buffer and
 ;; the conversation view are different buffers.
+;; TODO: Fine-tune the recipient list.
 
 ;; TODO: Evil mode: Preserve normal-state bindings when returning from composition.
 ;; TODO: read-only is still a bit klunky.  Alternative: Once the thread displayed, apply read-only to the text in (point-min) (last-message).
+;; TODO: Fix org quoting.
 
 (require 'mu4e)
 (require 'rx)
 (require 'outline)
+(require 'org)
+(require 'subr-x)
 
 (defvar mu4e-conversation--thread-headers nil)
 (defvar mu4e-conversation--thread nil)
@@ -476,8 +480,6 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
                                          org-mode-map)))
   (let* ((msg (nth index mu4e-conversation--thread))
          (msg-header (nth index mu4e-conversation--thread-headers))
-         (from (car (mu4e-message-field msg :from)))
-         (from-me-p (member (cdr from) mu4e-user-mail-address-list))
          (level (plist-get (mu4e-message-field msg-header :thread) :level))
          (org-level (make-string (1+ level) ?*)))
     (let ((header (format "%s %s%s, %s %s\n"
@@ -609,6 +611,13 @@ If MSG is specified, then send this message instead."
         (set-buffer-modified-p nil))
       (mu4e~view-quit-buffer))))
 
+;; TODO: Can we do better than a global?  We could use `mu4e-get-view-buffer'
+;; but that would only work if the buffer has not been renamed.
+(defvar mu4e-conversation--draft-msg nil)
+(defun mu4e-conversation-update-draft (msg _)
+  "Handler for `mu4e-update-func' to get the msg structure corresponding to the saved draft."
+  (setq mu4e-conversation--draft-msg msg))
+
 (defun mu4e-conversation-save (&optional msg)
   "Save conversation draft."
   (interactive)
@@ -640,16 +649,9 @@ If MSG is specified, then send this message instead."
                              (list 'msg mu4e-conversation--draft-msg))))
     (set-buffer-modified-p nil)))
 
-(defun mu4e-conversation-draft-reply-all-p (origmsg)
+(defun mu4e-conversation-draft-reply-all-p (&optional _origmsg)
   "Override of `mu4e~draft-reply-all-p' to always reply to all."
   t)
-
-;; TODO: Can we do better than a global?  We could use `mu4e-get-view-buffer'
-;; but that would only work if the buffer has not been renamed.
-(defvar mu4e-conversation--draft-msg nil)
-(defun mu4e-conversation-update-draft (msg _)
-  "Handler for `mu4e-update-func' to get the msg structure corresponding to the saved draft."
-  (setq mu4e-conversation--draft-msg msg))
 
 (defun mu4e-conversation-view-handler (msg)
   "Handler function for displaying a message."
