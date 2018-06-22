@@ -55,7 +55,6 @@
 
 ;; TODO: Evil mode: Preserve normal-state bindings when returning from composition.
 ;; TODO: read-only is still a bit klunky.  Alternative: Once the thread displayed, apply read-only to the text in (point-min) (last-message).
-;; TODO: Fix org quoting.
 
 (require 'mu4e)
 (require 'rx)
@@ -481,44 +480,45 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
   (let* ((msg (nth index mu4e-conversation--thread))
          (msg-header (nth index mu4e-conversation--thread-headers))
          (level (plist-get (mu4e-message-field msg-header :thread) :level))
-         (org-level (make-string (1+ level) ?*)))
-    (let ((header (format "%s %s%s, %s %s\n"
-                          org-level
-                          (if (memq 'unread (mu4e-message-field msg :flags))
-                              "UNREAD "
-                            "")
-                          (mu4e-conversation--from-name msg)
-                          (current-time-string (mu4e-message-field msg :date))
-                          (mu4e-message-field msg :flags)))
-          (body
-           (concat
-            ;; Use Org syntax for quoting.  TODO: How to nest quotes?
-            (replace-regexp-in-string
-             (rx line-start "--8<---------------cut here---------------start------------->8---" line-end) "#+begin_src"
-             (replace-regexp-in-string
-              (rx line-start "--8<---------------cut here---------------end--------------->8---" line-end) "#+end_src"
-              (replace-regexp-in-string
-               (rx line-start ">" (* space)) ": "
-               ;; Prefix "*" at the beginning of lines with a space to prevent them
-               ;; from being interpreted as Org sections.
-               (replace-regexp-in-string
-                (rx line-start "*") " *"
-                ;; TODO: Propertize HTML links.
-                (mu4e-message-body-text msg)))))
-            "\n"
-            (let ((attachments (mu4e~view-construct-attachments-header msg)))
-              ;; TODO: Propertize attachments.
-              (if attachments
-                  (format "
+         (org-level (make-string (1+ level) ?*))
+         body-start)
+    ;; Header.
+    (insert (format "%s %s%s, %s %s\n"
+                    org-level
+                    (if (memq 'unread (mu4e-message-field msg :flags))
+                        "UNREAD "
+                      "")
+                    (mu4e-conversation--from-name msg)
+                    (current-time-string (mu4e-message-field msg :date))
+                    (mu4e-message-field msg :flags)))
+    ;; Body
+    (goto-char (point-max))
+    (setq body-start (point))
+    ;; TODO: Propertize HTML links.
+    (insert (mu4e-message-body-text msg))
+    ;; Prefix "*" at the beginning of lines with a space to prevent them
+    ;; from being interpreted as Org sections.
+    (goto-char body-start)
+    (while (re-search-forward (rx line-start "*") nil t) (replace-match " *"))
+    (goto-char body-start)
+    (while (re-search-forward (rx line-start ">" (* blank)) nil t) (replace-match ": "))
+    (goto-char body-start)
+    (while (re-search-forward (rx line-start "--8<---------------cut here---------------start------------->8---" line-end) nil t)
+      (replace-match "#+begin_src"))
+    (goto-char body-start)
+    (while (re-search-forward (rx line-start "--8<---------------cut here---------------end--------------->8---" (* space)) nil t)
+      (replace-match "#+end_src"))
+    (goto-char (point-max))
+    (let ((attachments (mu4e~view-construct-attachments-header msg)))
+      ;; TODO: Propertize attachments.
+      (if attachments
+          (insert (format "
 :PROPERTIES:
 :ATTACHMENTS: %s
 :END:
 "
-                          attachments)
-                "")))))
-      ;; TODO: Put cited text and attachments in subsection / property?
-      ;; To use mu4e-conversation-unread on body, we would need to override Org faces.
-      (insert (concat header body)))))
+                          attachments))
+        ""))))
 
 (defun mu4e-conversation-cite (start end)
   (interactive "r")
