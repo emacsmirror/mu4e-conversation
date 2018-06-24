@@ -238,6 +238,7 @@ messages.  A negative COUNT goes forwards."
 With numeric prefix argument or if COUNT is given, move that many
 messages.  A negative COUNT goes backwards."
   (interactive "p")
+  (setq count (or count 1))
   (if (eq major-mode 'org-mode)
       (org-next-visible-heading count)
     (let ((move-function (if (< count 0)
@@ -285,14 +286,23 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
   (interactive)
   ;; Extra care must be taken to copy along the draft with its properties, in
   ;; case it wasn't saved.
-  ;; TODO: Restore position dynamically.
-  (let ((draft-text (when (buffer-modified-p)
-                      (buffer-substring (save-excursion
-                                          (goto-char (point-max))
-                                          (mu4e-conversation-previous-message)
-                                          (forward-line)
-                                          (point))
-                                        (point-max)))))
+  (let* ((current-message (mu4e-message-at-point 'no-error))
+         (line-offset (save-excursion
+                        (let ((current-line (line-number-at-pos)))
+                          (mu4e-conversation-previous-message)
+                          (if (or (not current-message)
+                                  ;; current-message might be nil when point is in a draft.
+                                  (eq current-message (mu4e-message-at-point 'no-error)))
+                              (- current-line (line-number-at-pos))
+                            0))))
+         (column (- (point) (line-beginning-position)))
+         (draft-text (when (buffer-modified-p)
+                       (buffer-substring (save-excursion
+                                           (goto-char (point-max))
+                                           (mu4e-conversation-previous-message)
+                                           (forward-line)
+                                           (point))
+                                         (point-max)))))
     (mu4e-conversation--show-thread
      (if (eq major-mode 'org-mode)
          'mu4e-conversation-print-message-linear
@@ -303,7 +313,20 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
         (mu4e-conversation-previous-message)
         (forward-line)
         (delete-region (point) (point-max))
-        (insert draft-text)))))
+        (insert draft-text)))
+    ;; Restore point.
+    (if (not current-message)
+        ;; Draft.
+        (progn
+          (goto-char (point-max))
+          (mu4e-conversation-previous-message))
+      (goto-char (point-min))
+      (while (and (not (eobp))
+                  (not (eq current-message (mu4e-message-at-point 'no-error))))
+        (mu4e-conversation-next-message)))
+    (dotimes (_ line-offset)
+      (forward-line))
+    (move-to-column column)))
 
 (defun mu4e-conversation--body-without-signature (message)
   "Return the message body (a string) stripped from its signature."
@@ -362,6 +385,11 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
                         'local-map mu4e-conversation-compose-map))
     (when draft-messages
       ;; REVIEW: Discard signature.
+      (add-text-properties
+       (save-excursion (mu4e-conversation-previous-message)
+                       (point))
+       (point-max)
+       (list 'msg (car draft-messages)))
       (if (= (length draft-messages) 1)
           (insert (propertize (mu4e-conversation--body-without-signature (car draft-messages))
                               'msg (car draft-messages)
