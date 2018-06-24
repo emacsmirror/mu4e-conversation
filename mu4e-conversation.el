@@ -220,7 +220,8 @@ If less than 0, don't limit the number of colors."
   (interactive)
   (unless mu4e-conversation--is-view-buffer
     (mu4e-warn "Not a conversation buffer"))
-  (let ((modified-p (buffer-modified-p)))
+  (let ((modified-p (buffer-modified-p))
+        (mu4e~view-buffer-name (buffer-name)))
     (set-buffer-modified-p nil)         ; Don't warn if modified.
     (mu4e-view-fill-long-lines)
     (set-buffer-modified-p modified-p)))
