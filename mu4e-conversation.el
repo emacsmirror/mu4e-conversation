@@ -46,15 +46,20 @@
 ;; TODO: Check out mu4e gnus view.
 ;; TODO: Should we reply to the selected message or to the last?  Make it an option: 'current, 'last, 'ask.
 ;; TODO: Does toggle-display HTML work?
-;; TODO: Mark/flag messages that are in thread but not in headers buffer.
 ;; TODO: Auto-update conversation buffer when receiving/sending mail.
 ;; TODO: Save using "save-buffer"?  This would allow different bindings to work
 ;; transparently (e.g. ":w" with Evil).  Problem is that the draft buffer and
 ;; the conversation view are different buffers.
-;; TODO: Fine-tune the recipient list.
 
+;; TODO: Tweak Org indentation?  See `org-adapt-indentation'.
+;; TODO: Mark/flag messages that are in thread but not in headers buffer.  See `mu4e-mark-set'.
+;; TODO: Fine-tune the recipient list.
 ;; TODO: Evil mode: Preserve normal-state bindings when returning from composition.
-;; TODO: read-only is still a bit klunky.  Alternative: Once the thread displayed, apply read-only to the text in (point-min) (last-message).
+;; TODO: `org-open-line'(?) and `evil-open-below' remove the local-map from the
+;; text properties.  Solution would be as for the above Evil issue: define
+;; "special-<kbd>" bindings such when read-only, act special, otherwise act
+;; normal.
+;; TODO: Do not discard draft when switching views.
 
 (require 'mu4e)
 (require 'rx)
@@ -332,28 +337,26 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
         (mu4e~view-mark-as-read-maybe msg)
         (goto-char (point-max)))
       (setq index (1+ index)))
+    (add-text-properties (point-min) (point-max) '(read-only t))
     (insert (propertize (format "%sCompose new message:" (if (eq major-mode 'org-mode) "* NEW " ""))
                         'face 'mu4e-conversation-header 'read-only t)
             ;; TODO: Prevent deletion of writable part.
             ;; Try with ('front-sticky t).
             (propertize (concat "\n" (unless draft-messages "\n"))
-                        'local-map mu4e-conversation-compose-map
-                        'inhibit-read-only t))
+                        'local-map mu4e-conversation-compose-map))
     (when draft-messages
       ;; REVIEW: Discard signature.
       (if (= (length draft-messages) 1)
           (insert (propertize (mu4e-conversation--body-without-signature (car draft-messages))
                               'msg (car draft-messages)
-                              'local-map mu4e-conversation-compose-map
-                              'inhibit-read-only t))
+                              'local-map mu4e-conversation-compose-map))
         (warn "Multiple drafts found.  You must clean up the drafts manually.")
         (let ((count 1))
           (dolist (draft draft-messages)
             (insert (propertize (concat (format "--Draft #%s--\n" count)
                                         (mu4e-conversation--body-without-signature draft))
                                 'msg (car draft-messages) ; Use first draft file.
-                                'local-map mu4e-conversation-compose-map
-                                'inhibit-read-only t))
+                                'local-map mu4e-conversation-compose-map))
             (setq count (1+ count))))))
     (goto-char current-message-pos)
     (recenter)
@@ -363,7 +366,6 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
                               (mu4e-message-field (car mu4e-conversation--thread) :subject)
                               'face 'bold))
     (add-to-invisibility-spec '(mu4e-conversation-quote . t))
-    (read-only-mode 1)
     (buffer-enable-undo)
     (set-buffer-modified-p nil)
     (add-to-list 'kill-buffer-query-functions 'mu4e-conversation-kill-buffer-query-function)))
@@ -449,6 +451,7 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
   "Insert formatted message found at INDEX in `mu4e-conversation--thread'."
   (unless (eq major-mode 'mu4e-view-mode)
     (mu4e-view-mode)
+    (read-only-mode 0)
     (use-local-map (make-composed-keymap (list mu4e-conversation-linear-map mu4e-conversation-map)
                                          mu4e-view-mode-map)))
   (let* ((msg (nth index mu4e-conversation--thread))
@@ -538,8 +541,7 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
                   (replace-regexp-in-string
                    "\n" "\n> "
                    text))
-          'local-map mu4e-conversation-compose-map
-          'inhibit-read-only t))))))
+          'local-map mu4e-conversation-compose-map))))))
 
 (defun mu4e-conversation-open-draft (&optional msg)
   "Open conversation composed message as a mu4e draft buffer.
@@ -643,9 +645,8 @@ If MSG is specified, then send this message instead."
     (unless draft-message
       ;; We need to add the newly created draft to the 'msg property, otherwise
       ;; every subsequent save would create a new draft.
-      (let ((inhibit-read-only t))
-        (add-text-properties composition-start (point-max)
-                             (list 'msg mu4e-conversation--draft-msg))))
+      (add-text-properties composition-start (point-max)
+                           (list 'msg mu4e-conversation--draft-msg)))
     (set-buffer-modified-p nil)))
 
 (defun mu4e-conversation-draft-reply-all-p (&optional _origmsg)
