@@ -77,6 +77,10 @@
 The argument is the message index in `mu4e-conversation--thread',
 counting from 0.")
 
+(defvar mu4e-conversation--is-view-buffer nil
+  "Tell whether current buffer is a conversation view.")
+(make-variable-buffer-local 'mu4e-conversation--is-view-buffer)
+
 (defgroup mu4e-conversation nil
   "Settings for the mu4e conversation view."
   :group 'mu4e)
@@ -268,10 +272,6 @@ messages.  A negative COUNT goes backwards."
       (remove-from-invisibility-spec '(mu4e-conversation-quote . t))
     (add-to-invisibility-spec '(mu4e-conversation-quote . t)))
   (force-window-update))
-
-(defvar mu4e-conversation--is-view-buffer nil
-  "Tell whether current buffer is a conversation view.")
-(make-variable-buffer-local 'mu4e-conversation--is-view-buffer)
 
 (defun mu4e-conversation-kill-buffer-query-function ()
   "Ask before killing a modified mu4e conversation buffer."
