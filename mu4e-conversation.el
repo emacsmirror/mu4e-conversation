@@ -308,6 +308,10 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
   (interactive)
   (unless mu4e-conversation--is-view-buffer
     (mu4e-warn "Not a conversation buffer"))
+  (when (and buffer-undo-list
+             (not (yes-or-no-p "Undo list will be reset after switching view.  Continue? ")))
+    (mu4e-warn "Keeping undo list"))
+  (buffer-disable-undo)
   ;; Org properties skew line calculation, so remove it first.
   (let ((inhibit-read-only t)
         (block (org-get-property-block))
