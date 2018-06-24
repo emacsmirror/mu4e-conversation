@@ -425,10 +425,15 @@ If print-function is nil, use `mu4e-conversation-print-message-function'."
     (setq mu4e-conversation--is-view-buffer t)
     (insert (propertize (format "%sCompose new message:" (if (eq major-mode 'org-mode) "* NEW " ""))
                         'face 'mu4e-conversation-header 'read-only t)
-            ;; TODO: Prevent deletion of writable part.
-            ;; Try with ('front-sticky t).
-            (propertize (concat "\n" (unless draft-messages "\n"))
-                        'local-map mu4e-conversation-compose-map))
+            (propertize "\n"
+                        'face 'mu4e-conversation-header
+                        'rear-nonsticky t
+                        'local-map mu4e-conversation-compose-map)
+            (if draft-messages ""
+              (propertize
+               "\n"
+               'local-map mu4e-conversation-compose-map
+               'front-sticky t)))
     (cond
      (draft-text
       (save-excursion
@@ -447,14 +452,16 @@ If print-function is nil, use `mu4e-conversation-print-message-function'."
       (if (= (length draft-messages) 1)
           (insert (propertize (mu4e-conversation--body-without-signature (car draft-messages))
                               'msg (car draft-messages)
-                              'local-map mu4e-conversation-compose-map))
+                              'local-map mu4e-conversation-compose-map
+                              'front-sticky t))
         (warn "Multiple drafts found.  You must clean up the drafts manually.")
         (let ((count 1))
           (dolist (draft draft-messages)
             (insert (propertize (concat (format "--Draft #%s--\n" count)
                                         (mu4e-conversation--body-without-signature draft))
                                 'msg (car draft-messages) ; Use first draft file.
-                                'local-map mu4e-conversation-compose-map))
+                                'local-map mu4e-conversation-compose-map
+                                'front-sticky t))
             (setq count (1+ count)))))))
     (goto-char current-message-pos)
     (recenter)
