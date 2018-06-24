@@ -59,7 +59,6 @@
 ;; text properties.  Solution would be as for the above Evil issue: define
 ;; "special-<kbd>" bindings such when read-only, act special, otherwise act
 ;; normal.
-;; TODO: Do not discard draft when switching views.
 
 (require 'mu4e)
 (require 'rx)
@@ -284,10 +283,27 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
 (defun mu4e-conversation-toggle-view ()
   "Switch between tree and linear view."
   (interactive)
-  (mu4e-conversation--show-thread
-   (if (eq major-mode 'org-mode)
-       'mu4e-conversation-print-message-linear
-     'mu4e-conversation-print-message-tree)))
+  ;; Extra care must be taken to copy along the draft with its properties, in
+  ;; case it wasn't saved.
+  ;; TODO: Restore position dynamically.
+  (let ((draft-text (when (buffer-modified-p)
+                      (buffer-substring (save-excursion
+                                          (goto-char (point-max))
+                                          (mu4e-conversation-previous-message)
+                                          (forward-line)
+                                          (point))
+                                        (point-max)))))
+    (mu4e-conversation--show-thread
+     (if (eq major-mode 'org-mode)
+         'mu4e-conversation-print-message-linear
+       'mu4e-conversation-print-message-tree))
+    (when draft-text
+      (save-excursion
+        (goto-char (point-max))
+        (mu4e-conversation-previous-message)
+        (forward-line)
+        (delete-region (point) (point-max))
+        (insert draft-text)))))
 
 (defun mu4e-conversation--body-without-signature (message)
   "Return the message body (a string) stripped from its signature."
