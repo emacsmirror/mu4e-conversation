@@ -261,15 +261,16 @@ messages.  A negative COUNT goes backwards."
       (not (buffer-modified-p))
       (yes-or-no-p  "Reply message has been modified.  Kill anyway? ")))
 
-(defun mu4e-conversation-quit ()
+(defun mu4e-conversation-quit (&optional no-confirm)
   "Quit conversation window.
-Ask for confirmation if message was not saved."
+If NO-CONFIRM is nil, ask for confirmation if message was not saved."
   ;; This function is useful as a replacement for `mu4e~view-quit-buffer': it
   ;; allows us to keep focus on the view buffer.
   (interactive)
   (unless (eq major-mode 'mu4e-view-mode)
     (mu4e-view-mode))
-  (when (or (not (buffer-modified-p))
+  (when (or no-confirm
+            (not (buffer-modified-p))
             (yes-or-no-p "Reply message has been modified.  Kill anyway? "))
     ;; Don't ask for confirmation again in the `kill-buffer-query-functions'.
     (set-buffer-modified-p nil)
@@ -607,10 +608,7 @@ If MSG is specified, then send this message instead."
                (widen))))
     (if draft-buf
         (switch-to-buffer draft-buf)
-      (with-current-buffer (get-buffer mu4e~view-buffer-name)
-        ;; No need to prompt saving changes since the message was successfully sent.
-        (set-buffer-modified-p nil))
-      (mu4e~view-quit-buffer))))
+      (mu4e-conversation-quit 'no-confirm))))
 
 ;; TODO: Can we do better than a global?  We could use `mu4e-get-view-buffer'
 ;; but that would only work if the buffer has not been renamed.
