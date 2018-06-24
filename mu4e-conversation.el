@@ -59,6 +59,8 @@
 ;; text properties.  Solution would be as for the above Evil issue: define
 ;; "special-<kbd>" bindings such when read-only, act special, otherwise act
 ;; normal.
+;; TODO: Automatically rename conversation buffers to *mu4e-view-TITLE*.  Make it an option?
+;; We probably need `mu4e-conversation-get-last-buffer'.
 
 (require 'mu4e)
 (require 'rx)
@@ -310,7 +312,8 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
     (mu4e-conversation--show-thread
      (if (eq major-mode 'org-mode)
          'mu4e-conversation-print-message-linear
-       'mu4e-conversation-print-message-tree))
+       'mu4e-conversation-print-message-tree)
+     (current-buffer))
     (when draft-text
       (save-excursion
         (goto-char (point-max))
@@ -344,10 +347,10 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
       (delete-region (point) (point-max)))
     (buffer-string)))
 
-(defun mu4e-conversation--show-thread (&optional print-function)
+(defun mu4e-conversation--show-thread (&optional print-function buffer)
   "Display the thread in the `mu4e-conversation--buffer-name' buffer."
   ;; See the docstring of `mu4e-message-field-raw'.
-  (switch-to-buffer (get-buffer-create mu4e~view-buffer-name))
+  (switch-to-buffer (or buffer (get-buffer-create mu4e~view-buffer-name)))
   (let* ((current-message-pos 0)
          (index 0)
          (filter (lambda (seq) (if (eq mu4e-conversation-print-message-function 'mu4e-conversation-print-message-linear)
@@ -357,9 +360,11 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
                                            (time-less-p (mu4e-message-field msg1 :date)
                                                         (mu4e-message-field msg2 :date))))
                                  seq)))
-         (mu4e-conversation--thread (funcall filter mu4e-conversation--thread))
-         (mu4e-conversation--thread-headers (funcall filter mu4e-conversation--thread-headers))
          (inhibit-read-only t)
+         ;; let-bind the thread variables to preserve them when changing major modes.
+         ;; We can make them buffer local once the major mode is set.
+         (thread (funcall filter mu4e-conversation--thread))
+         (thread-headers (funcall filter mu4e-conversation--thread-headers))
          draft-messages)
     (erase-buffer)
     (delete-all-overlays)
@@ -372,7 +377,9 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
         (let ((begin (point)))
           (funcall (or print-function
                        mu4e-conversation-print-message-function)
-                   index)
+                   index
+                   thread
+                   thread-headers)
           (mu4e~view-show-images-maybe msg)
           (goto-char (point-max))
           (add-text-properties begin (point) (list 'msg msg)))
@@ -416,15 +423,19 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
     (add-to-invisibility-spec '(mu4e-conversation-quote . t))
     (buffer-enable-undo)
     (set-buffer-modified-p nil)
-    (setq mu4e-conversation--is-view-buffer t)          ; Used as "marker" so that we can tell the buffer is a mu4e-conversation.
+    ;; Save the thread in for the current buffer.  This is useful for redisplays.
+    (set (make-local-variable 'mu4e-conversation--thread) thread)
+    (set (make-local-variable 'mu4e-conversation--thread-headers) thread-headers)
+    (make-local-variable 'mu4e-conversation--current-message)
+    (setq mu4e-conversation--is-view-buffer t) ; Used as "marker" so that we can tell the buffer is a mu4e-conversation.
     (add-to-list 'kill-buffer-query-functions 'mu4e-conversation-kill-buffer-query-function)))
 
-(defun mu4e-conversation--get-message-face (index)
+(defun mu4e-conversation--get-message-face (index thread)
   "Map 'from' addresses to 'sender-N' faces in chronological
 order and return corresponding face for e-mail at INDEX in
-`mu4e-conversation--thread'.
+THREAD.
 E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
-  (let* ((message (nth index mu4e-conversation--thread))
+  (let* ((message (nth index thread))
          (from (car (mu4e-message-field message :from)))
          ;; The e-mail address is not enough as key since automated messaging
          ;; system such as the one from github have the same address with
@@ -433,7 +444,7 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
          (sender-faces (make-hash-table :test 'equal))
          (face-index 1))
     (dotimes (i (1+ index))
-      (let* ((msg (nth i mu4e-conversation--thread))
+      (let* ((msg (nth i thread))
              (from (car (mu4e-message-field msg :from)))
              (sender-key (concat (car from) (cdr from)))
              (from-me-p (member (cdr from) mu4e-user-mail-address-list)))
@@ -496,19 +507,20 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
         (add-text-properties (1- start) (length message)
                              '(invisible mu4e-conversation-quote) message)))))
 
-(defun mu4e-conversation-print-message-linear (index)
-  "Insert formatted message found at INDEX in `mu4e-conversation--thread'."
+(defun mu4e-conversation-print-message-linear (index thread &optional _thread-headers)
+  "Insert formatted message found at INDEX in THREAD."
   (unless (eq major-mode 'mu4e-view-mode)
     (mu4e-view-mode)
     (read-only-mode 0)
     (use-local-map (make-composed-keymap (list mu4e-conversation-linear-map mu4e-conversation-map)
                                          mu4e-view-mode-map)))
-  (let* ((msg (nth index mu4e-conversation--thread))
+  (let* ((msg (nth index thread))
          (from (car (mu4e-message-field msg :from)))
          (from-me-p (member (cdr from) mu4e-user-mail-address-list))
          (sender-face (or (get-text-property (point) 'face)
                           (and from-me-p 'mu4e-conversation-sender-me)
-                          (and (/= 0 mu4e-conversation-max-colors) (mu4e-conversation--get-message-face index))
+                          (and (/= 0 mu4e-conversation-max-colors)
+                               (mu4e-conversation--get-message-face index thread))
                           'default)))
     (insert (propertize (format "%s, %s %s\n"
                                 (mu4e-conversation--from-name msg)
@@ -524,15 +536,15 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
                 (add-face-text-property 0 (length s) 'mu4e-conversation-unread nil s))
               s))))
 
-(defun mu4e-conversation-print-message-tree (index)
-  "Insert formatted message found at INDEX in `mu4e-conversation--thread'."
+(defun mu4e-conversation-print-message-tree (index thread thread-headers)
+  "Insert Org-formatted message found at INDEX in THREAD."
   (unless (eq major-mode 'org-mode)
     (insert "#+SEQ_TODO: UNREAD READ NEW\n\n") ; TODO: Is it possible to set `org-todo-keywords' locally?
     (org-mode)
     (use-local-map (make-composed-keymap (list mu4e-conversation-tree-map mu4e-conversation-map)
                                          org-mode-map)))
-  (let* ((msg (nth index mu4e-conversation--thread))
-         (msg-header (nth index mu4e-conversation--thread-headers))
+  (let* ((msg (nth index thread))
+         (msg-header (nth index thread-headers))
          (level (plist-get (mu4e-message-field msg-header :thread) :level))
          (org-level (make-string (1+ level) ?*))
          body-start)
