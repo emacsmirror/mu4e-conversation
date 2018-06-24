@@ -53,7 +53,8 @@
 
 ;; TODO: Tweak Org indentation?  See `org-adapt-indentation'.
 ;; TODO: Mark/flag messages that are in thread but not in headers buffer.  See `mu4e-mark-set'.
-;; TODO: Fine-tune the recipient list.
+;; TODO: Fine-tune the recipient list display and composition in linear view.
+;; In tree view, we could read properties from the composition subtree.
 ;; TODO: Evil mode: Preserve normal-state bindings when returning from composition.
 ;; TODO: `org-open-line'(?) and `evil-open-below' remove the local-map from the
 ;; text properties.  Solution would be as for the above Evil issue: define
@@ -586,6 +587,23 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
                 (add-face-text-property 0 (length s) 'mu4e-conversation-unread nil s))
               s))))
 
+(defun mu4e-conversation--format-address-list (address-list)
+  "Return ADDRESS-LIST as a string.
+The list is in the following format:
+  ((\"name\" . \"email\")...)"
+  (mapconcat
+   (lambda (addrcomp)
+     (if (and message-recipients-without-full-name
+              (string-match
+               (regexp-opt message-recipients-without-full-name)
+               (cdr addrcomp)))
+         (cdr addrcomp)
+       (if (car addrcomp)
+           (message-make-from (car addrcomp) (cdr addrcomp))
+         (cdr addrcomp))))
+   address-list
+   ", "))
+
 (defun mu4e-conversation-print-message-tree (index thread thread-headers)
   "Insert Org-formatted message found at INDEX in THREAD."
   (unless (eq major-mode 'org-mode)
@@ -625,9 +643,11 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
     (while (re-search-forward (rx line-start "--8<---------------cut here---------------end--------------->8---" (* space)) nil t)
       (replace-match "#+end_src"))
     (goto-char (point-max))
-    (org-set-property "To" (format "%S" (mu4e-message-field msg :to)))
+    (org-set-property "To" (mu4e-conversation--format-address-list
+                            (mu4e-message-field msg :to)))
     (when (mu4e-message-field msg :cc)
-         (org-set-property "CC" (format "%S" (mu4e-message-field msg :cc))))
+      (org-set-property "CC" (mu4e-conversation--format-address-list
+                              (mu4e-message-field msg :cc))))
     (let ((attachments (mu4e~view-construct-attachments-header msg)))
       ;; TODO: Propertize attachments.
       (when attachments
