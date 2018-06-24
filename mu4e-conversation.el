@@ -209,6 +209,8 @@ If less than 0, don't limit the number of colors."
 (defun mu4e-conversation-fill-long-lines ()
   "Same as `mu4e-view-fill-long-lines' but does not change the modified state."
   (interactive)
+  (unless mu4e-conversation--is-view-buffer
+    (mu4e-warn "Not a conversation buffer"))
   (let ((modified-p (buffer-modified-p)))
     (set-buffer-modified-p nil)         ; Don't warn if modified.
     (mu4e-view-fill-long-lines)
@@ -217,6 +219,8 @@ If less than 0, don't limit the number of colors."
 (defun mu4e-conversation-save-attachment (&optional msg)
   "Same as `mu4e-view-save-attachment-multi' but works for message at point."
   (interactive)
+  (unless mu4e-conversation--is-view-buffer
+    (mu4e-warn "Not a conversation buffer"))
   (setq msg (or msg (mu4e-message-at-point)))
   (mu4e~view-construct-attachments-header msg)
   (mu4e-view-save-attachment-multi))
@@ -224,6 +228,8 @@ If less than 0, don't limit the number of colors."
 (defun mu4e-conversation-open-attachment (&optional msg)
   "Same as `mu4e-view-open-attachment-multi' but works for message at point."
   (interactive)
+  (unless mu4e-conversation--is-view-buffer
+    (mu4e-warn "Not a conversation buffer"))
   (setq msg (or msg (mu4e-message-at-point)))
   (mu4e~view-construct-attachments-header msg)
   (mu4e-view-open-attachment))
@@ -240,6 +246,8 @@ messages.  A negative COUNT goes forwards."
 With numeric prefix argument or if COUNT is given, move that many
 messages.  A negative COUNT goes backwards."
   (interactive "p")
+  (unless mu4e-conversation--is-view-buffer
+    (mu4e-warn "Not a conversation buffer"))
   (setq count (or count 1))
   (if (eq major-mode 'org-mode)
       (org-next-visible-heading count)
@@ -277,6 +285,8 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
   ;; This function is useful as a replacement for `mu4e~view-quit-buffer': it
   ;; allows us to keep focus on the view buffer.
   (interactive)
+  (unless mu4e-conversation--is-view-buffer
+    (mu4e-warn "Not a conversation buffer"))
   (when (or no-confirm
             (not (buffer-modified-p))
             (yes-or-no-p "Reply message has been modified.  Kill anyway? "))
@@ -290,6 +300,8 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
 (defun mu4e-conversation-toggle-view ()
   "Switch between tree and linear view."
   (interactive)
+  (unless mu4e-conversation--is-view-buffer
+    (mu4e-warn "Not a conversation buffer"))
   ;; Extra care must be taken to copy along the draft with its properties, in
   ;; case it wasn't saved.
   (let* ((current-message (mu4e-message-at-point 'no-error))
@@ -588,6 +600,8 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
 
 (defun mu4e-conversation-cite (start end)
   (interactive "r")
+  (unless mu4e-conversation--is-view-buffer
+    (mu4e-warn "Not a conversation buffer"))
   (if (not (use-region-p))
       (mu4e-scroll-up)
     (let ((text (buffer-substring-no-properties start end)))
@@ -607,7 +621,8 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
 (defun mu4e-conversation--open-draft (&optional msg)
   "Open conversation composed message as a mu4e draft buffer.
 This is a helper function for operations such as saving and sending."
-  (interactive)
+  (unless mu4e-conversation--is-view-buffer
+    (mu4e-warn "Not a conversation buffer"))
   (let ((mu4e-compose-in-new-frame nil)
         (body (save-excursion
                 (goto-char (point-max))
@@ -661,6 +676,8 @@ This is a helper function for operations such as saving and sending."
   "Send message at the end of the view buffer.
 If MSG is specified, then send this message instead."
   (interactive)
+  (unless mu4e-conversation--is-view-buffer
+    (mu4e-warn "Not a conversation buffer"))
   (let (draft-buf)
     (save-window-excursion
       (mu4e-conversation--open-draft msg)
@@ -683,6 +700,8 @@ If MSG is specified, then send this message instead."
 (defun mu4e-conversation-save (&optional msg)
   "Save conversation draft."
   (interactive)
+  (unless mu4e-conversation--is-view-buffer
+    (mu4e-warn "Not a conversation buffer"))
   (unless (buffer-modified-p)
     (mu4e-warn "(No changes need to be saved)"))
   (let ((composition-start (save-excursion
