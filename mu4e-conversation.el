@@ -625,16 +625,20 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
     (while (re-search-forward (rx line-start "--8<---------------cut here---------------end--------------->8---" (* space)) nil t)
       (replace-match "#+end_src"))
     (goto-char (point-max))
+    (org-set-property "To" (format "%S" (mu4e-message-field msg :to)))
+    (when (mu4e-message-field msg :cc)
+         (org-set-property "CC" (format "%S" (mu4e-message-field msg :cc))))
     (let ((attachments (mu4e~view-construct-attachments-header msg)))
       ;; TODO: Propertize attachments.
-      (if attachments
-          (insert (format "
-:PROPERTIES:
-:ATTACHMENTS: %s
-:END:
-"
-                          attachments))
-        ""))))
+      (when attachments
+        (org-set-property "Attachments" (replace-regexp-in-string "\n$" "" attachments)))
+      (when (and (< (length (mu4e-message-field msg :to)) 2)
+                 (not (mu4e-message-field msg :cc))
+                 (not attachments))
+        (save-excursion
+          (goto-char (car (org-get-property-block)))
+          (forward-line -1)
+          (org-cycle))))))
 
 (defun mu4e-conversation-cite (start end)
   (interactive "r")
