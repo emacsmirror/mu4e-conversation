@@ -259,10 +259,13 @@ messages.  A negative COUNT goes backwards."
     (add-to-invisibility-spec '(mu4e-conversation-quote . t)))
   (force-window-update))
 
+(defvar mu4e-conversation--is-view-buffer nil
+  "Tell whether current buffer is a conversation view.")
+(make-variable-buffer-local 'mu4e-conversation--is-view-buffer)
+
 (defun mu4e-conversation-kill-buffer-query-function ()
   "Ask before killing a modified mu4e conversation buffer."
-  (or (not mu4e-conversation-mode)
-      (not (eq major-mode 'mu4e-view-mode))
+  (or (not mu4e-conversation--is-view-buffer)
       (not (buffer-modified-p))
       (yes-or-no-p  "Reply message has been modified.  Kill anyway? ")))
 
@@ -412,6 +415,7 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
     (add-to-invisibility-spec '(mu4e-conversation-quote . t))
     (buffer-enable-undo)
     (set-buffer-modified-p nil)
+    (setq mu4e-conversation--is-view-buffer t)          ; Used as "marker" so that we can tell the buffer is a mu4e-conversation.
     (add-to-list 'kill-buffer-query-functions 'mu4e-conversation-kill-buffer-query-function)))
 
 (defun mu4e-conversation--get-message-face (index)
