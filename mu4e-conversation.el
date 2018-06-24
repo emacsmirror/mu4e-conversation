@@ -275,13 +275,14 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
   ;; This function is useful as a replacement for `mu4e~view-quit-buffer': it
   ;; allows us to keep focus on the view buffer.
   (interactive)
-  (unless (eq major-mode 'mu4e-view-mode)
-    (mu4e-view-mode))
   (when (or no-confirm
             (not (buffer-modified-p))
             (yes-or-no-p "Reply message has been modified.  Kill anyway? "))
     ;; Don't ask for confirmation again in the `kill-buffer-query-functions'.
     (set-buffer-modified-p nil)
+    ;; `mu4e~view-quit-buffer' must be called from a buffer in `mu4e-view-mode'.
+    (unless (eq major-mode 'mu4e-view-mode)
+      (mu4e-view-mode))
     (mu4e~view-quit-buffer)))
 
 (defun mu4e-conversation-toggle-view ()
