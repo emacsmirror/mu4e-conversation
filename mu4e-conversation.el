@@ -307,8 +307,20 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
   (interactive)
   (unless mu4e-conversation--is-view-buffer
     (mu4e-warn "Not a conversation buffer"))
-  ;; Extra care must be taken to copy along the draft with its properties, in
-  ;; case it wasn't saved.
+  ;; Org properties skew line calculation, so remove it first.
+  (let ((inhibit-read-only t)
+        (block (org-get-property-block))
+        (modified (buffer-modified-p))
+        begin)
+    (when block
+      (save-excursion
+        (goto-char (car block))
+        (forward-line -1)
+        (setq begin (point))
+        (goto-char (cdr block))
+        (forward-line 1)
+        (delete-region begin (point)))
+      (set-buffer-modified-p modified)))
   (let* ((current-message (mu4e-message-at-point 'no-error))
          (line-offset (save-excursion
                         (let ((current-line (line-number-at-pos)))
@@ -333,8 +345,22 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
       (while (and (not (eobp))
                   (not (eq current-message (mu4e-message-at-point 'no-error))))
         (mu4e-conversation-next-message)))
-    (dotimes (_ line-offset)
-      (forward-line))
+    (let ((block (org-get-property-block))
+          begin end)
+      (when block
+        (save-excursion
+          (goto-char (car block))
+          (forward-line -1)
+          (setq begin (point))
+          (goto-char (cdr block))
+          (forward-line 1)
+          (setq end (point))))
+      (dotimes (_ line-offset)
+        (forward-line)
+        (when (and block
+                   (<= begin (point) end))
+          ;; If point meets an Org property block, skip it at once.
+          (goto-char end))))
     (move-to-column column)))
 
 (defun mu4e-conversation--body-without-signature (message)
@@ -389,6 +415,8 @@ If print-function is nil, use `mu4e-conversation-print-message-function'."
          (thread (funcall filter mu4e-conversation--thread))
          (thread-headers (funcall filter mu4e-conversation--thread-headers))
          (inhibit-read-only t)
+         ;; Extra care must be taken to copy along the draft with its properties, in
+         ;; case it wasn't saved.
          (draft-text (when (buffer-modified-p)
                        (buffer-substring (save-excursion
                                            (goto-char (point-max))
