@@ -284,7 +284,7 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
 (defun mu4e-conversation-toggle-view ()
   "Switch between tree and linear view."
   (interactive)
-  (mu4e-conversation-show-thread
+  (mu4e-conversation--show-thread
    (if (eq major-mode 'org-mode)
        'mu4e-conversation-print-message-linear
      'mu4e-conversation-print-message-tree)))
@@ -301,7 +301,7 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
       (delete-region (point) (point-max)))
     (buffer-string)))
 
-(defun mu4e-conversation-show-thread (&optional print-function)
+(defun mu4e-conversation--show-thread (&optional print-function)
   "Display the thread in the `mu4e-conversation--buffer-name' buffer."
   ;; See the docstring of `mu4e-message-field-raw'.
   (switch-to-buffer (get-buffer-create mu4e~view-buffer-name))
@@ -543,7 +543,7 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
                    text))
           'local-map mu4e-conversation-compose-map))))))
 
-(defun mu4e-conversation-open-draft (&optional msg)
+(defun mu4e-conversation--open-draft (&optional msg)
   "Open conversation composed message as a mu4e draft buffer.
 This is a helper function for operations such as saving and sending."
   (interactive)
@@ -580,9 +580,9 @@ This is a helper function for operations such as saving and sending."
         (mu4e-draft-open 'edit draft-message)
       ;; Advice mu4e~draft-reply-all-p so that we don't get prompted and always "reply to all".
       ;; TODO: Protect the advice so that it gets remove cleanly even in case of error.
-      (advice-add 'mu4e~draft-reply-all-p :override 'mu4e-conversation-draft-reply-all-p)
+      (advice-add 'mu4e~draft-reply-all-p :override 'mu4e-conversation--draft-reply-all-p)
       (mu4e-draft-open 'reply msg)
-      (advice-remove 'mu4e~draft-reply-all-p 'mu4e-conversation-draft-reply-all-p))
+      (advice-remove 'mu4e~draft-reply-all-p 'mu4e-conversation--draft-reply-all-p))
     (mu4e~draft-insert-mail-header-separator)
     (mu4e-compose-mode)
     (message-goto-body)
@@ -602,7 +602,7 @@ If MSG is specified, then send this message instead."
   (interactive)
   (let (draft-buf)
     (save-window-excursion
-      (mu4e-conversation-open-draft msg)
+      (mu4e-conversation--open-draft msg)
       (condition-case nil
           (message-send-and-exit)
         ;; Stay in draft buffer and widen in case we failed during header check.
@@ -615,7 +615,7 @@ If MSG is specified, then send this message instead."
 ;; TODO: Can we do better than a global?  We could use `mu4e-get-view-buffer'
 ;; but that would only work if the buffer has not been renamed.
 (defvar mu4e-conversation--draft-msg nil)
-(defun mu4e-conversation-update-draft (msg _)
+(defun mu4e-conversation--update-draft (msg _)
   "Handler for `mu4e-update-func' to get the msg structure corresponding to the saved draft."
   (setq mu4e-conversation--draft-msg msg))
 
@@ -635,12 +635,12 @@ If MSG is specified, then send this message instead."
                          (forward-line)
                          (mu4e-message-at-point 'noerror))))
     (save-window-excursion
-      (mu4e-conversation-open-draft msg)
+      (mu4e-conversation--open-draft msg)
       (unless draft-message
-        (advice-add mu4e-update-func :override 'mu4e-conversation-update-draft))
+        (advice-add mu4e-update-func :override 'mu4e-conversation--update-draft))
       (save-buffer)
       (unless draft-message
-        (advice-remove mu4e-update-func 'mu4e-conversation-update-draft))
+        (advice-remove mu4e-update-func 'mu4e-conversation--update-draft))
       (kill-buffer))
     (unless draft-message
       ;; We need to add the newly created draft to the 'msg property, otherwise
@@ -649,39 +649,39 @@ If MSG is specified, then send this message instead."
                            (list 'msg mu4e-conversation--draft-msg)))
     (set-buffer-modified-p nil)))
 
-(defun mu4e-conversation-draft-reply-all-p (&optional _origmsg)
+(defun mu4e-conversation--draft-reply-all-p (&optional _origmsg)
   "Override of `mu4e~draft-reply-all-p' to always reply to all."
   t)
 
-(defun mu4e-conversation-view-handler (msg)
+(defun mu4e-conversation--view-handler (msg)
   "Handler function for displaying a message."
   (push msg mu4e-conversation--thread)
   (when (= (length mu4e-conversation--thread)
            (length mu4e-conversation--thread-headers))
-    (advice-remove mu4e-view-func 'mu4e-conversation-view-handler)
-    ;; Headers are collected in reverse order, let's order them.
+    (advice-remove mu4e-view-func 'mu4e-conversation--view-handler)
+    ;; Headers are collected in reverse order, let's re-order them.
     (setq mu4e-conversation--thread-headers (nreverse mu4e-conversation--thread-headers))
     (let ((viewwin (mu4e~headers-redraw-get-view-window)))
       (unless (window-live-p viewwin)
         (mu4e-error "Cannot get a conversation window"))
       (select-window viewwin))
-    (mu4e-conversation-show-thread)))
+    (mu4e-conversation--show-thread)))
 
-(defun mu4e-conversation-header-handler (msg)
+(defun mu4e-conversation--header-handler (msg)
   "Store thread messages.
 The header handler is run for all messages before the found-handler.
 See `mu4e~proc-filter'"
   (push msg mu4e-conversation--thread-headers))
 
-(defun mu4e-conversation-erase-handler (&optional _msg)
+(defun mu4e-conversation--erase-handler (&optional _msg)
   "Don't clear the header buffer when viewing.")
 
-(defun mu4e-conversation-found-handler (_count)
-  (advice-remove mu4e-header-func 'mu4e-conversation-header-handler)
-  (advice-remove mu4e-erase-func 'mu4e-conversation-erase-handler)
-  (advice-remove mu4e-found-func 'mu4e-conversation-found-handler)
+(defun mu4e-conversation--found-handler (_count)
+  (advice-remove mu4e-header-func 'mu4e-conversation--header-handler)
+  (advice-remove mu4e-erase-func 'mu4e-conversation--erase-handler)
+  (advice-remove mu4e-found-func 'mu4e-conversation--found-handler)
   (setq mu4e-conversation--thread nil)
-  (advice-add mu4e-view-func :override 'mu4e-conversation-view-handler)
+  (advice-add mu4e-view-func :override 'mu4e-conversation--view-handler)
   (dolist (msg mu4e-conversation--thread-headers)
     (let ((docid (mu4e-message-field msg :docid))
           ;; decrypt (or not), based on `mu4e-decryption-policy'.
@@ -692,7 +692,7 @@ See `mu4e~proc-filter'"
                   mu4e-decryption-policy))))
       (mu4e~proc-view docid mu4e-view-show-images decrypt))))
 
-(defun mu4e-conversation-get-view-buffer ()
+(defun mu4e-conversation--get-view-buffer ()
   "Like `mu4e-get-view-buffer' except that if switches to the
 former buffer if modified."
   (let ((buf (get-buffer mu4e~view-buffer-name)))
@@ -713,9 +713,9 @@ former buffer if modified."
   :init-value nil
   (if mu4e-conversation-mode
       (progn
-        (advice-add 'mu4e-get-view-buffer :override 'mu4e-conversation-get-view-buffer)
+        (advice-add 'mu4e-get-view-buffer :override 'mu4e-conversation--get-view-buffer)
         (setq mu4e-view-func 'mu4e-conversation))
-    (advice-remove 'mu4e-get-view-buffer 'mu4e-conversation-get-view-buffer)
+    (advice-remove 'mu4e-get-view-buffer 'mu4e-conversation--get-view-buffer)
     (setq mu4e-view-func 'mu4e~headers-view-handler)))
 
 (defun mu4e-conversation--turn-on ()
@@ -731,9 +731,9 @@ former buffer if modified."
   (unless mu4e-conversation--current-message
     (mu4e-warn "No message at point"))
   (setq mu4e-conversation--thread-headers nil)
-  (advice-add mu4e-header-func :override 'mu4e-conversation-header-handler)
-  (advice-add mu4e-erase-func :override 'mu4e-conversation-erase-handler)
-  (advice-add mu4e-found-func :override 'mu4e-conversation-found-handler)
+  (advice-add mu4e-header-func :override 'mu4e-conversation--header-handler)
+  (advice-add mu4e-erase-func :override 'mu4e-conversation--erase-handler)
+  (advice-add mu4e-found-func :override 'mu4e-conversation--found-handler)
   (mu4e~proc-find
    (funcall mu4e-query-rewrite-function
             (format "msgid:%s" (mu4e-message-field
