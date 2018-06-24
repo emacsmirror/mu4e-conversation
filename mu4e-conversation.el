@@ -59,8 +59,6 @@
 ;; text properties.  Solution would be as for the above Evil issue: define
 ;; "special-<kbd>" bindings such when read-only, act special, otherwise act
 ;; normal.
-;; TODO: Automatically rename conversation buffers to *mu4e-view-TITLE*.  Make it an option?
-;; We probably need `mu4e-conversation-get-last-buffer'.
 
 (require 'mu4e)
 (require 'rx)
@@ -89,6 +87,12 @@ counting from 0.")
   "Name to display instead of your own name.
 This applies to addresses matching `mu4e-user-mail-address-list'.
 If nil, the name value is not substituted."
+  :type 'string
+  :group 'mu4e-conversation)
+
+(defcustom mu4e-conversation-buffer-name-format "*mu4e-view-%s*"
+  "Format of the conversation buffer name.
+'%s' will be replaced by the buffer name."
   :type 'string
   :group 'mu4e-conversation)
 
@@ -313,26 +317,11 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
                                   (eq current-message (mu4e-message-at-point 'no-error)))
                               (- current-line (line-number-at-pos))
                             0))))
-         (column (- (point) (line-beginning-position)))
-         (draft-text (when (buffer-modified-p)
-                       (buffer-substring (save-excursion
-                                           (goto-char (point-max))
-                                           (mu4e-conversation-previous-message)
-                                           (forward-line)
-                                           (point))
-                                         (point-max)))))
+         (column (- (point) (line-beginning-position))))
     (mu4e-conversation--show-thread
      (if (eq major-mode 'org-mode)
          'mu4e-conversation-print-message-linear
-       'mu4e-conversation-print-message-tree)
-     (current-buffer))
-    (when draft-text
-      (save-excursion
-        (goto-char (point-max))
-        (mu4e-conversation-previous-message)
-        (forward-line)
-        (delete-region (point) (point-max))
-        (insert draft-text)))
+       'mu4e-conversation-print-message-tree))
     ;; Restore point.
     (if (not current-message)
         ;; Draft.
@@ -359,24 +348,54 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
       (delete-region (point) (point-max)))
     (buffer-string)))
 
-(defun mu4e-conversation--show-thread (&optional print-function buffer)
-  "Display the thread in the `mu4e-conversation--buffer-name' buffer."
+(defun  mu4e-conversation--get-buffer (&optional title)
+  "Return conversation buffer.
+This mimics the behaviour of `mu4e-get-view-buffer' but supports multiple
+buffers.
+
+- It TITLE is non-nil and return a buffer named (format
+mu4e-conversation-buffer-name-format title) and create it if necessary.
+- If current buffer is a conversation, return it.
+- Otherwise get most recent buffer for which `mu4e-conversation--is-view-buffer'
+is non-nil."
+  (cond
+   (title (get-buffer-create (format mu4e-conversation-buffer-name-format title)))
+   (mu4e-conversation--is-view-buffer (current-buffer))
+   (t (seq-find (lambda (b)
+                  (with-current-buffer b
+                    mu4e-conversation--is-view-buffer))
+                (buffer-list)))))
+
+(defun mu4e-conversation--show-thread (&optional print-function)
+  "Display the conversation in BUFFER.
+If BUFFER is nil, buffer is as returned by `mu4e-conversation--get-buffer'.
+If print-function is nil, use `mu4e-conversation-print-message-function'."
   ;; See the docstring of `mu4e-message-field-raw'.
-  (switch-to-buffer (or buffer (get-buffer-create mu4e~view-buffer-name)))
+  (switch-to-buffer (mu4e-conversation--get-buffer
+                     (mu4e-message-field (car mu4e-conversation--thread) :subject)))
   (let* ((current-message-pos 0)
          (index 0)
-         (filter (lambda (seq) (if (eq mu4e-conversation-print-message-function 'mu4e-conversation-print-message-linear)
+         (filter (lambda (seq) (if (eq mu4e-conversation-print-message-function
+                                       'mu4e-conversation-print-message-linear)
                                    ;; In linear view, it makes more sense to sort messages chronologically.
                                    (sort seq
                                          (lambda (msg1 msg2)
                                            (time-less-p (mu4e-message-field msg1 :date)
                                                         (mu4e-message-field msg2 :date))))
                                  seq)))
-         (inhibit-read-only t)
          ;; let-bind the thread variables to preserve them when changing major modes.
          ;; We can make them buffer local once the major mode is set.
          (thread (funcall filter mu4e-conversation--thread))
          (thread-headers (funcall filter mu4e-conversation--thread-headers))
+         (inhibit-read-only t)
+         (draft-text (when (buffer-modified-p)
+                       (buffer-substring (save-excursion
+                                           (goto-char (point-max))
+                                           (mu4e-conversation-previous-message)
+                                           (forward-line)
+                                           (point))
+                                         (point-max))))
+         (buffer-modified (buffer-modified-p))
          draft-messages)
     (erase-buffer)
     (delete-all-overlays)
@@ -400,13 +419,25 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
         (goto-char (point-max)))
       (setq index (1+ index)))
     (add-text-properties (point-min) (point-max) '(read-only t))
+    ;; Used as "marker" so that we can tell the buffer is a mu4e-conversation.
+    ;; Must set this here for the rest of the functions to work,
+    ;; e.g. `mu4e-conversation-previous-message'.
+    (setq mu4e-conversation--is-view-buffer t)
     (insert (propertize (format "%sCompose new message:" (if (eq major-mode 'org-mode) "* NEW " ""))
                         'face 'mu4e-conversation-header 'read-only t)
             ;; TODO: Prevent deletion of writable part.
             ;; Try with ('front-sticky t).
             (propertize (concat "\n" (unless draft-messages "\n"))
                         'local-map mu4e-conversation-compose-map))
-    (when draft-messages
+    (cond
+     (draft-text
+      (save-excursion
+        (goto-char (point-max))
+        (mu4e-conversation-previous-message)
+        (forward-line)
+        (delete-region (point) (point-max))
+        (insert draft-text)))
+     (draft-messages
       ;; REVIEW: Discard signature.
       (add-text-properties
        (save-excursion (mu4e-conversation-previous-message)
@@ -424,7 +455,7 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
                                         (mu4e-conversation--body-without-signature draft))
                                 'msg (car draft-messages) ; Use first draft file.
                                 'local-map mu4e-conversation-compose-map))
-            (setq count (1+ count))))))
+            (setq count (1+ count)))))))
     (goto-char current-message-pos)
     (recenter)
     (unless (eq major-mode 'org-mode)
@@ -433,13 +464,13 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
                               (mu4e-message-field (car mu4e-conversation--thread) :subject)
                               'face 'bold))
     (add-to-invisibility-spec '(mu4e-conversation-quote . t))
+    ;; TODO: Undo history is not preserved accross redisplays.
     (buffer-enable-undo)
-    (set-buffer-modified-p nil)
+    (set-buffer-modified-p buffer-modified)
     ;; Save the thread in for the current buffer.  This is useful for redisplays.
     (set (make-local-variable 'mu4e-conversation--thread) thread)
     (set (make-local-variable 'mu4e-conversation--thread-headers) thread-headers)
     (make-local-variable 'mu4e-conversation--current-message)
-    (setq mu4e-conversation--is-view-buffer t) ; Used as "marker" so that we can tell the buffer is a mu4e-conversation.
     (add-to-list 'kill-buffer-query-functions 'mu4e-conversation-kill-buffer-query-function)))
 
 (defun mu4e-conversation--get-message-face (index thread)
