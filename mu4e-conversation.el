@@ -802,7 +802,8 @@ former buffer if modified."
   "Turn on `mu4e-conversation-mode'."
   (mu4e-conversation-mode))
 
-(define-globalized-minor-mode global-mu4e-conversation-mode mu4e-conversation-mode mu4e-conversation--turn-on)
+(define-globalized-minor-mode global-mu4e-conversation-mode mu4e-conversation-mode mu4e-conversation--turn-on
+  :require 'mu4e-conversation)
 
 ;;;###autoload
 (defun mu4e-conversation (&optional msg)
