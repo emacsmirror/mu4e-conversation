@@ -383,22 +383,19 @@ is non-nil."
 If BUFFER is nil, buffer is as returned by `mu4e-conversation--get-buffer'.
 If print-function is nil, use `mu4e-conversation-print-message-function'."
   ;; See the docstring of `mu4e-message-field-raw'.
+  (setq print-function (or print-function mu4e-conversation-print-message-function))
   (switch-to-buffer (mu4e-conversation--get-buffer
                      (mu4e-message-field (car mu4e-conversation--thread) :subject)))
   (let* ((current-message-pos 0)
          (index 0)
-         (filter (lambda (seq) (if (eq mu4e-conversation-print-message-function
-                                       'mu4e-conversation-print-message-linear)
-                                   ;; In linear view, it makes more sense to sort messages chronologically.
-                                   (sort seq
-                                         (lambda (msg1 msg2)
-                                           (time-less-p (mu4e-message-field msg1 :date)
-                                                        (mu4e-message-field msg2 :date))))
-                                 seq)))
          ;; let-bind the thread variables to preserve them when changing major modes.
          ;; We can make them buffer local once the major mode is set.
-         (thread (funcall filter mu4e-conversation--thread))
-         (thread-headers (funcall filter mu4e-conversation--thread-headers))
+         (thread mu4e-conversation--thread)
+         (thread-headers mu4e-conversation--thread-headers)
+         ;; If we want to re-order a thread, let's do it on a copy so that we
+         ;; don't lose the tree structure.
+         (thread-sorted thread)
+         (thread-headers-sorted thread-headers)
          (inhibit-read-only t)
          ;; Extra care must be taken to copy along the draft with its properties, in
          ;; case it wasn't saved.
@@ -411,20 +408,29 @@ If print-function is nil, use `mu4e-conversation-print-message-function'."
                                          (point-max))))
          (buffer-modified (buffer-modified-p))
          draft-messages)
+    (when (eq print-function
+              'mu4e-conversation-print-message-linear)
+      ;; In linear view, it makes more sense to sort messages chronologically.
+      (let ((filter (lambda (seq)
+                      (sort (copy-seq seq)
+                            (lambda (msg1 msg2)
+                              (time-less-p (mu4e-message-field msg1 :date)
+                                           (mu4e-message-field msg2 :date)))))))
+        (setq thread-sorted (funcall filter thread)
+              thread-headers-sorted (funcall filter thread-headers))))
     (erase-buffer)
     (delete-all-overlays)
-    (dolist (msg mu4e-conversation--thread)
+    (dolist (msg thread-sorted)
       (if (member 'draft (mu4e-message-field msg :flags))
           (push msg draft-messages)
         (when (= (mu4e-message-field msg :docid)
                  (mu4e-message-field mu4e-conversation--current-message :docid))
           (setq current-message-pos (point)))
         (let ((begin (point)))
-          (funcall (or print-function
-                       mu4e-conversation-print-message-function)
+          (funcall print-function
                    index
-                   thread
-                   thread-headers)
+                   thread-sorted
+                   thread-headers-sorted)
           (mu4e~view-show-images-maybe msg)
           (goto-char (point-max))
           (add-text-properties begin (point) (list 'msg msg)))
@@ -482,7 +488,7 @@ If print-function is nil, use `mu4e-conversation-print-message-function'."
     (unless (eq major-mode 'org-mode)
       (mu4e~view-make-urls-clickable))  ; TODO: Don't discard sender face.
     (setq header-line-format (propertize
-                              (mu4e-message-field (car mu4e-conversation--thread) :subject)
+                              (mu4e-message-field (car thread-sorted) :subject)
                               'face 'bold))
     (add-to-invisibility-spec '(mu4e-conversation-quote . t))
     ;; TODO: Undo history is not preserved accross redisplays.
