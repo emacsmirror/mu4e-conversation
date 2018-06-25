@@ -185,16 +185,12 @@ If less than 0, don't limit the number of colors."
     (define-key map (kbd "C-c C-p") 'mu4e-conversation-previous-message)
     (define-key map (kbd "C-c C-n") 'mu4e-conversation-next-message)
     (define-key map (kbd "M-q") 'mu4e-conversation-fill-long-lines)
-    (define-key map (kbd "e") 'mu4e-conversation-save-attachment)
-    (define-key map (kbd "o") 'mu4e-conversation-open-attachment)
     (define-key map (kbd "q") 'mu4e-conversation-quit)
     map)
   "Map for `mu4e-conversation' in linear view.")
 
 (defvar mu4e-conversation-tree-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "e") 'mu4e-conversation-save-attachment)
-    (define-key map (kbd "o") 'mu4e-conversation-open-attachment)
     (define-key map (kbd "q") 'mu4e-conversation-quit)
     (define-key map (kbd "C") 'mu4e-compose-new)
     (define-key map (kbd "R") 'mu4e-compose-reply)
@@ -219,23 +215,15 @@ If less than 0, don't limit the number of colors."
     (mu4e-view-fill-long-lines)
     (set-buffer-modified-p modified-p)))
 
-(defun mu4e-conversation-save-attachment (&optional msg)
-  "Same as `mu4e-view-save-attachment-multi' but works for message at point."
+(defun mu4e-conversation-set-attachment (&optional msg)
+  "Call before attachment
+functions (e.g. `mu4e-view-save-attachment-multi') so that it
+works for message at point.  Suitable as a :before advice."
   (interactive)
   (unless mu4e-conversation--is-view-buffer
     (mu4e-warn "Not a conversation buffer"))
   (setq msg (or msg (mu4e-message-at-point)))
-  (mu4e~view-construct-attachments-header msg)
-  (mu4e-view-save-attachment-multi))
-
-(defun mu4e-conversation-open-attachment (&optional msg)
-  "Same as `mu4e-view-open-attachment-multi' but works for message at point."
-  (interactive)
-  (unless mu4e-conversation--is-view-buffer
-    (mu4e-warn "Not a conversation buffer"))
-  (setq msg (or msg (mu4e-message-at-point)))
-  (mu4e~view-construct-attachments-header msg)
-  (mu4e-view-open-attachment))
+  (mu4e~view-construct-attachments-header msg))
 
 (defun mu4e-conversation-previous-message (&optional count)
   "Go to previous message in linear view.
@@ -882,8 +870,12 @@ former buffer if modified."
   (if mu4e-conversation-mode
       (progn
         (advice-add 'mu4e-get-view-buffer :override 'mu4e-conversation--get-view-buffer)
+        (advice-add 'mu4e-view-save-attachment-multi :before 'mu4e-conversation-set-attachment)
+        (advice-add 'mu4e-view-open-attachment :before 'mu4e-conversation-set-attachment)
         (setq mu4e-view-func 'mu4e-conversation))
     (advice-remove 'mu4e-get-view-buffer 'mu4e-conversation--get-view-buffer)
+    (advice-remove 'mu4e-view-save-attachment-multi 'mu4e-conversation-save-attachment)
+    (advice-remove 'mu4e-view-open-attachment 'mu4e-conversation-open-attachment)
     (setq mu4e-view-func 'mu4e~headers-view-handler)))
 
 (defun mu4e-conversation--turn-on ()
