@@ -41,26 +41,34 @@
 
 ;; TODO: Overrides are not commended.  Use unwind-protect to set handlers?  I don't think it would work.
 ;; TODO: Only mark visible messages as read.
-;; TODO: Indent user messages?  Make formatting more customizable.
 ;; TODO: Detect subject changes.
 ;; TODO: Check out mu4e gnus view.
 ;; TODO: Should we reply to the selected message or to the last?  Make it an option: 'current, 'last, 'ask.
 ;; TODO: Does toggle-display HTML work?
-;; TODO: Auto-update conversation buffer when receiving/sending mail.
 ;; TODO: Save using "save-buffer"?  This would allow different bindings to work
 ;; transparently (e.g. ":w" with Evil).  Problem is that the draft buffer and
 ;; the conversation view are different buffers.
 
-;; TODO: Add convenience functions to check if some recipients have been left out, or to return the list of all recipients.
+;; TODO: Views should be structure with
+;; - Thread sort function
+;; - Previous / next function
+;; - Print function
+;; TODO: Indent user messages?  Make formatting more customizable.
 ;; TODO: Tweak Org indentation?  See `org-adapt-indentation'.
+
+;; TODO: Sometimes messages are not marked as read.
+;; TODO: Auto-update conversation buffer when receiving/sending mail.
+;; TODO: Add convenience functions to check if some recipients have been left out, or to return the list of all recipients.
 ;; TODO: Mark/flag messages that are in thread but not in headers buffer.  See `mu4e-mark-set'.
 ;; TODO: Fine-tune the recipient list display and composition in linear view.
 ;; In tree view, we could read properties from the composition subtree.
+
 ;; TODO: Evil mode: Preserve normal-state bindings when returning from composition.
 ;; TODO: `org-open-line'(?) and `evil-open-below' remove the local-map from the
 ;; text properties.  Solution would be as for the above Evil issue: define
 ;; "special-<kbd>" bindings such when read-only, act special, otherwise act
 ;; normal.
+;; Check out `org-mu4e-compose-org-mode'.
 
 (require 'mu4e)
 (require 'rx)
@@ -657,10 +665,10 @@ The list is in the following format:
     (goto-char body-start)
     (while (re-search-forward (rx line-start ">" (* blank)) nil t) (replace-match ": "))
     (goto-char body-start)
-    (while (re-search-forward (rx line-start "--8<---------------cut here---------------start------------->8---" line-end) nil t)
+    (while (re-search-forward (rx line-start "--8<---------------cut here---------------start------------->8---") nil t)
       (replace-match "#+begin_src"))
     (goto-char body-start)
-    (while (re-search-forward (rx line-start "--8<---------------cut here---------------end--------------->8---" (* space)) nil t)
+    (while (re-search-forward (rx line-start "--8<---------------cut here---------------end--------------->8---") nil t)
       (replace-match "#+end_src"))
     (goto-char (point-max))
     (org-set-property "To" (mu4e-conversation--format-address-list
