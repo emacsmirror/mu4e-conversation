@@ -311,7 +311,6 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
   (when (and buffer-undo-list
              (not (yes-or-no-p "Undo list will be reset after switching view.  Continue? ")))
     (mu4e-warn "Keeping undo list"))
-  (buffer-disable-undo)
   ;; Org properties skew line calculation, so remove it first.
   (let ((inhibit-read-only t)
         (block (org-get-property-block))
@@ -506,13 +505,14 @@ If print-function is nil, use `mu4e-conversation-print-message-function'."
                               'face 'bold))
     (add-to-invisibility-spec '(mu4e-conversation-quote . t))
     ;; TODO: Undo history is not preserved accross redisplays.
-    (buffer-enable-undo)
     (set-buffer-modified-p buffer-modified)
     ;; Save the thread in for the current buffer.  This is useful for redisplays.
     (set (make-local-variable 'mu4e-conversation--thread) thread)
     (set (make-local-variable 'mu4e-conversation--thread-headers) thread-headers)
     (make-local-variable 'mu4e-conversation--current-message)
-    (add-to-list 'kill-buffer-query-functions 'mu4e-conversation-kill-buffer-query-function)))
+    (add-to-list 'kill-buffer-query-functions 'mu4e-conversation-kill-buffer-query-function)
+    (buffer-disable-undo)               ; Reset `buffer-undo-list'.
+    (buffer-enable-undo)))
 
 (defun mu4e-conversation--get-message-face (index thread)
   "Map 'from' addresses to 'sender-N' faces in chronological
