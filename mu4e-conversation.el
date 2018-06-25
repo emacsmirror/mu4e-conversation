@@ -911,7 +911,8 @@ former buffer if modified."
   (advice-add mu4e-erase-func :override 'mu4e-conversation--erase-handler)
   (advice-add mu4e-found-func :override 'mu4e-conversation--found-handler)
   (mu4e~proc-find
-   (funcall mu4e-query-rewrite-function
+   ;; `mu4e-query-rewrite-function' seems to be missing from mu<1.0.
+   (funcall (or mu4e-query-rewrite-function 'identity)
             (format "msgid:%s" (mu4e-message-field
                                 mu4e-conversation--current-message
                                 :message-id)))
