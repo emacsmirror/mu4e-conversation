@@ -41,7 +41,7 @@
 
 ;; TODO: Overrides are not commended.  Use unwind-protect to set handlers?  I don't think it would work.
 ;; TODO: Only mark visible messages as read.
-;; TODO: Indent user messages?
+;; TODO: Indent user messages?  Make formatting more customizable.
 ;; TODO: Detect subject changes.
 ;; TODO: Check out mu4e gnus view.
 ;; TODO: Should we reply to the selected message or to the last?  Make it an option: 'current, 'last, 'ask.
@@ -51,6 +51,7 @@
 ;; transparently (e.g. ":w" with Evil).  Problem is that the draft buffer and
 ;; the conversation view are different buffers.
 
+;; TODO: Add convenience functions to check if some recipients have been left out, or to return the list of all recipients.
 ;; TODO: Tweak Org indentation?  See `org-adapt-indentation'.
 ;; TODO: Mark/flag messages that are in thread but not in headers buffer.  See `mu4e-mark-set'.
 ;; TODO: Fine-tune the recipient list display and composition in linear view.
@@ -159,16 +160,14 @@ If less than 0, don't limit the number of colors."
   :type 'integer
   :group 'mu4e-conversation)
 
-(defcustom mu4e-conversation-map
+(defvar mu4e-conversation-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "V") 'mu4e-conversation-toggle-view)
     (define-key map (kbd "#") 'mu4e-conversation-toggle-hide-cited)
     map)
-  "Map for `mu4e-conversation'."
-  :type 'key-sequence
-  :group 'mu4e-conversation)
+  "Map for `mu4e-conversation'.")
 
-(defcustom mu4e-conversation-compose-map
+(defvar mu4e-conversation-compose-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map global-map)
     (define-key map (kbd "C-c C-c") 'mu4e-conversation-send)
@@ -176,11 +175,9 @@ If less than 0, don't limit the number of colors."
     (define-key map (kbd "C-c C-p") 'mu4e-conversation-previous-message)
     (define-key map (kbd "C-c C-n") 'mu4e-conversation-next-message)
     map)
-  "Map for `mu4e-conversation' in compose area."
-  :type 'key-sequence
-  :group 'mu4e-conversation)
+  "Map for `mu4e-conversation' in compose area.")
 
-(defcustom mu4e-conversation-linear-map
+(defvar mu4e-conversation-linear-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "<return>") 'mu4e-conversation-cite)
     (define-key map (kbd "C-c C-c") 'mu4e-conversation-send)
@@ -192,11 +189,9 @@ If less than 0, don't limit the number of colors."
     (define-key map (kbd "o") 'mu4e-conversation-open-attachment)
     (define-key map (kbd "q") 'mu4e-conversation-quit)
     map)
-  "Map for `mu4e-conversation' in linear view."
-  :type 'key-sequence
-  :group 'mu4e-conversation)
+  "Map for `mu4e-conversation' in linear view.")
 
-(defcustom mu4e-conversation-tree-map
+(defvar mu4e-conversation-tree-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "e") 'mu4e-conversation-save-attachment)
     (define-key map (kbd "o") 'mu4e-conversation-open-attachment)
@@ -211,9 +206,7 @@ If less than 0, don't limit the number of colors."
     (define-key map (kbd "|") 'mu4e-view-pipe)
     (define-key map (kbd "M-q") 'mu4e-conversation-fill-long-lines)
     map)
-  "Map for `mu4e-conversation' in tree view."
-  :type 'key-sequence
-  :group 'mu4e-conversation)
+  "Map for `mu4e-conversation' in tree view.")
 
 (defun mu4e-conversation-fill-long-lines ()
   "Same as `mu4e-view-fill-long-lines' but does not change the modified state."
