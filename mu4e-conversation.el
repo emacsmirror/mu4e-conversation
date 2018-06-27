@@ -906,10 +906,12 @@ former buffer if modified."
         (advice-add 'mu4e-get-view-buffer :override 'mu4e-conversation--get-view-buffer)
         (advice-add 'mu4e-view-save-attachment-multi :before 'mu4e-conversation-set-attachment)
         (advice-add 'mu4e-view-open-attachment :before 'mu4e-conversation-set-attachment)
+        ;; We must set the variable and not override its function because we
+        ;; will need the override later.
         (setq mu4e-view-func 'mu4e-conversation))
-    (advice-remove 'mu4e-get-view-buffer 'mu4e-conversation--get-view-buffer)
-    (advice-remove 'mu4e-view-save-attachment-multi 'mu4e-conversation-save-attachment)
-    (advice-remove 'mu4e-view-open-attachment 'mu4e-conversation-open-attachment)
+    ;; (advice-remove 'mu4e-get-view-buffer 'mu4e-conversation--get-view-buffer)
+    (advice-remove 'mu4e-view-save-attachment-multi 'mu4e-conversation-set-attachment)
+    (advice-remove 'mu4e-view-open-attachment 'mu4e-conversation-set-attachment)
     (setq mu4e-view-func 'mu4e~headers-view-handler)))
 
 (defun mu4e-conversation--turn-on ()
