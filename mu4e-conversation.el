@@ -138,6 +138,19 @@ For example, to disable appending signature at the end of a message:
   :type 'hook
   :group 'mu4e-conversation)
 
+(defcustom mu4e-conversation-use-citation-line nil
+  "If non-nil, precede each citation with a line as per
+`mu4e-conversation-citation-line-function'."
+  :type 'boolean
+  :group 'mu4e-conversation)
+
+(defcustom mu4e-conversation-citation-line-function 'mu4e-conversation-insert-citation-line
+  "Function called to insert the \"Whomever writes:\" line."
+  :type '(choice
+	  (function-item :tag "default" mu4e-conversation-insert-citation-line)
+	  (function :tag "Other"))
+  :group 'mu4e-conversation)
+
 (defface mu4e-conversation-unread
   '((t :weight bold))
   "Face for unread messages."
@@ -754,24 +767,40 @@ The list is in the following format:
           (forward-line -1)
           (org-cycle))))))
 
-(defun mu4e-conversation-cite (start end)
-  (interactive "r")
+(defun mu4e-conversation-insert-citation-line (&optional msg)
+  "This is similar to `message-insert-citation-line' but takes a
+mu4e message as argument."
+  (setq msg (or msg (mu4e-message-at-point)))
+  (concat
+   (mu4e-conversation--format-address-list (mu4e-message-field msg :from))
+   " writes:\n"))
+
+(defun mu4e-conversation-cite (start end &optional toggle-citation-line)
+  (interactive "r\nP")
   (unless mu4e-conversation--is-view-buffer
     (mu4e-warn "Not a conversation buffer"))
   (if (not (use-region-p))
-      (mu4e-scroll-up)
-    (let ((text (buffer-substring-no-properties start end)))
+      (mu4e-scroll-up)                  ; TODO: Call function associate to `this-command-key' in mu4e-view-mode / org-mode.
+    (let ((text (buffer-substring-no-properties start end))
+          (mu4e-conversation-use-citation-line (if toggle-citation-line
+                                             (not mu4e-conversation-use-citation-line)
+                                           mu4e-conversation-use-citation-line))
+          (msg (mu4e-message-at-point)))
       (save-excursion
         (goto-char (point-max))
         (backward-char)
         (insert
          (propertize
+          (concat
+           "\n\n"
+           (if (and mu4e-conversation-use-citation-line msg)
+               (funcall mu4e-conversation-citation-line-function msg)
+             "")
+           "> "
           ;; TODO: Re-cite first line properly.
-          (concat "\n\n"
-                  "> "
-                  (replace-regexp-in-string
-                   "\n" "\n> "
-                   text))
+           (replace-regexp-in-string
+            "\n" "\n> "
+            text))
           'local-map mu4e-conversation-compose-map))))))
 
 (defun mu4e-conversation--open-draft (&optional msg)
