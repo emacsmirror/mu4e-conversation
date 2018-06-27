@@ -310,6 +310,9 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
     ;; `mu4e~view-quit-buffer' must be called from a buffer in `mu4e-view-mode'.
     (unless (eq major-mode 'mu4e-view-mode)
       (mu4e-view-mode))
+    ;; Change major mode reset the local variable and we need to let know
+    ;; subsequent calls that this still is a conversation buffer.
+    (setq mu4e-conversation--is-view-buffer t)
     (mu4e~view-quit-buffer)))
 
 (defun mu4e-conversation-toggle-view ()
@@ -883,34 +886,18 @@ See `mu4e~proc-filter'"
                   mu4e-decryption-policy))))
       (mu4e~proc-view docid mu4e-view-show-images decrypt))))
 
-(defun mu4e-conversation--get-view-buffer ()
-  "Like `mu4e-get-view-buffer' except that if switches to the
-former buffer if modified."
-  (let ((buf (get-buffer mu4e~view-buffer-name)))
-    (if (or (null buf)
-            (not (buffer-modified-p buf))
-            (yes-or-no-p  "Reply message has been modified.  Discard? "))
-        (progn
-          ;; Don't prompt again.
-          (when buf
-            (with-current-buffer buf
-              (set-buffer-modified-p nil)))
-          buf)
-      (switch-to-buffer buf)
-      (mu4e-warn "Reply message preserved."))))
-
 (define-minor-mode mu4e-conversation-mode
   "Replace `mu4e-view' with `mu4e-conversation'."
   :init-value nil
   (if mu4e-conversation-mode
       (progn
-        (advice-add 'mu4e-get-view-buffer :override 'mu4e-conversation--get-view-buffer)
+        (advice-add 'mu4e-get-view-buffer :override 'mu4e-conversation--get-buffer)
         (advice-add 'mu4e-view-save-attachment-multi :before 'mu4e-conversation-set-attachment)
         (advice-add 'mu4e-view-open-attachment :before 'mu4e-conversation-set-attachment)
         ;; We must set the variable and not override its function because we
         ;; will need the override later.
         (setq mu4e-view-func 'mu4e-conversation))
-    ;; (advice-remove 'mu4e-get-view-buffer 'mu4e-conversation--get-view-buffer)
+    (advice-remove 'mu4e-get-view-buffer 'mu4e-conversation--get-buffer)
     (advice-remove 'mu4e-view-save-attachment-multi 'mu4e-conversation-set-attachment)
     (advice-remove 'mu4e-view-open-attachment 'mu4e-conversation-set-attachment)
     (setq mu4e-view-func 'mu4e~headers-view-handler)))
