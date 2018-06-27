@@ -22,15 +22,15 @@ Load the package with
 
 From the headers view, call ~M-x mu4e-conversation~.
 
-Call ~mu4e-conversation-toggle-view~ (bound to =V= by default) to switch between
-linear and tree view.
-
 To fully replace ~mu4e-view~ with ~mu4e-conversation~ from any other command
 (e.g. ~mu4e-headers-next~, ~helm-mu~), call
 
 : (global-mu4e-conversation-mode)
 
-* Compose a reply in-buffer
+* Features
+
+Call ~mu4e-conversation-toggle-view~ (bound to =V= by default) to switch between
+linear and tree view.
 
 The last section is writable.
 
@@ -40,10 +40,7 @@ When the region is active anywhere in the thread, ~mu4e-conversation-cite~
 (=<return>= by default) will append the selected text as citation to the message
 being composed.
 
-* Multiple views
-
-You can view and multiple replies at thee same time by renaming the buffer with
-~M-x rename-buffer~.
+Each conversation gets its own buffer.
 
 * Screenshots
 
