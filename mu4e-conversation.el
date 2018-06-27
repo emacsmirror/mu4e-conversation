@@ -655,8 +655,9 @@ The list is in the following format:
 (defun mu4e-conversation-print-message-tree (index thread thread-headers)
   "Insert Org-formatted message found at INDEX in THREAD."
   (unless (eq major-mode 'org-mode)
-    (insert "#+SEQ_TODO: UNREAD READ NEW\n\n") ; TODO: Is it possible to set `org-todo-keywords' locally?
+    (insert "#+SEQ_TODO: UNREAD READ NEW\n\n")
     (org-mode)
+    (erase-buffer) ; TODO: Is it possible to set `org-todo-keywords' locally without this workaround?
     (use-local-map (make-composed-keymap (list mu4e-conversation-tree-map mu4e-conversation-map)
                                          org-mode-map)))
   (let* ((msg (nth index thread))
