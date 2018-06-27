@@ -421,6 +421,36 @@ is non-nil."
                     mu4e-conversation--is-view-buffer))
                 (buffer-list)))))
 
+(defun mu4e-converation--headers-redraw-get-view-window ()
+  "Like `mu4e~headers-redraw-get-view-window' but preserve conversation buffers."
+  (if (eq mu4e-split-view 'single-window)
+      (or (and (buffer-live-p (mu4e-get-view-buffer))
+	       (get-buffer-window (mu4e-get-view-buffer)))
+	  (selected-window))
+    (mu4e-hide-other-mu4e-buffers)
+    (unless (buffer-live-p (mu4e-get-headers-buffer))
+      (mu4e-error "No headers buffer available"))
+    (switch-to-buffer (mu4e-get-headers-buffer))
+    ;; kill the existing view window
+    (when (and (buffer-live-p (mu4e-get-view-buffer))
+               (with-current-buffer (mu4e-get-view-buffer)
+                 mu4e-conversation--is-view-buffer))
+      (let ((win (get-buffer-window (mu4e-get-view-buffer))))
+        (when (eq t (window-deletable-p win))
+          (delete-window win))))
+    ;; get a new view window
+    (setq mu4e~headers-view-win
+     (let* ((new-win-func
+	     (cond
+	      ((eq mu4e-split-view 'horizontal) ;; split horizontally
+	       '(split-window-vertically mu4e-headers-visible-lines))
+	      ((eq mu4e-split-view 'vertical) ;; split vertically
+	       '(split-window-horizontally mu4e-headers-visible-columns)))))
+       (cond ((with-demoted-errors "Unable to split window: %S"
+		(eval new-win-func)))
+	     (t ;; no splitting; just use the currently selected one
+	      (selected-window)))))))
+
 (defun mu4e-conversation--show-thread (&optional print-function)
   "Display the conversation in BUFFER.
 If BUFFER is nil, buffer is as returned by `mu4e-conversation--get-buffer'.
@@ -905,6 +935,7 @@ See `mu4e~proc-filter'"
   (if mu4e-conversation-mode
       (progn
         (advice-add 'mu4e-get-view-buffer :override 'mu4e-conversation--get-buffer)
+        (advice-add 'mu4e~headers-redraw-get-view-window :override 'mu4e-conversation--headers-redraw-get-view-window)
         (advice-add 'mu4e-view-save-attachment-multi :before 'mu4e-conversation-set-attachment)
         (advice-add 'mu4e-view-open-attachment :before 'mu4e-conversation-set-attachment)
         ;; We must set the variable and not override its function because we
@@ -913,6 +944,7 @@ See `mu4e~proc-filter'"
     (advice-remove 'mu4e-get-view-buffer 'mu4e-conversation--get-buffer)
     (advice-remove 'mu4e-view-save-attachment-multi 'mu4e-conversation-set-attachment)
     (advice-remove 'mu4e-view-open-attachment 'mu4e-conversation-set-attachment)
+    (advice-remove 'mu4e~headers-redraw-get-view-window 'mu4e-conversation--headers-redraw-get-view-window)
     (setq mu4e-view-func 'mu4e~headers-view-handler)))
 
 (defun mu4e-conversation--turn-on ()
