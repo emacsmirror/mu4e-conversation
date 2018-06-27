@@ -126,6 +126,18 @@ If nil, the name value is not substituted."
   :type 'string
   :group 'mu4e-conversation)
 
+(defcustom mu4e-conversation-send-hook nil
+  "A hook run before sending messages.
+For example, to disable appending signature at the end of a message:
+
+  (add-hook
+   'mu4e-conversation-send-hook
+   (lambda ()
+     (set (make-local-variable 'mu4e-compose-signature-auto-include) nil)))
+"
+  :type 'hook
+  :group 'mu4e-conversation)
+
 (defface mu4e-conversation-unread
   '((t :weight bold))
   "Face for unread messages."
@@ -793,6 +805,7 @@ If MSG is specified, then send this message instead."
   (unless mu4e-conversation--is-view-buffer
     (mu4e-warn "Not a conversation buffer"))
   (let (draft-buf)
+    (run-hooks 'mu4e-conversation-send-hook)
     (save-window-excursion
       (mu4e-conversation--open-draft msg)
       (condition-case nil
