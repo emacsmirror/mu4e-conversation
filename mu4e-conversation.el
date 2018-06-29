@@ -106,7 +106,8 @@
   "Structure that holds a thread and its associated buffer."
   content
   headers
-  (current-docid 0)
+  (current-docid 0)                     ; TODO: Replace with "current-message"?
+  print-function
   buffer)
 
 (defvar mu4e-conversation--last-thread nil
@@ -491,7 +492,11 @@ mu4e-conversation-buffer-name-format title) and create it if necessary.
   "Print the conversation in the buffer associated to the THREAD.
 If PRINT-FUNCTION is nil, use `mu4e-conversation-print-function'."
   ;; See the docstring of `mu4e-message-field-raw'.
-  (setq print-function (or print-function mu4e-conversation-print-function))
+  ;; We need to store the print-function so that updates don't revert the mode.
+  (setq print-function (or print-function
+                           (mu4e-conversation-thread-print-function thread)
+                           mu4e-conversation-print-function))
+  (setf (mu4e-conversation-thread-print-function thread) print-function)
   (unless (mu4e-conversation-thread-buffer thread)
     (setf (mu4e-conversation-thread-buffer thread)
           (mu4e-conversation--get-buffer (mu4e-message-field
