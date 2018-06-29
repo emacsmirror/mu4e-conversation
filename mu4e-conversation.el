@@ -543,9 +543,6 @@ If PRINT-FUNCTION is nil, use `mu4e-conversation-print-function'."
       (dolist (msg thread-content-sorted)
         (if (member 'draft (mu4e-message-field msg :flags))
             (push msg draft-messages)
-          (when (= (mu4e-message-field msg :docid)
-                    (mu4e-conversation-thread-current-docid thread) )
-            (setq current-message-pos (point)))
           (let ((begin (point)))
             (funcall print-function
                      index
@@ -1057,6 +1054,13 @@ Suitable to be run after the update handler."
     (if (window-live-p viewwin)
         (select-window viewwin)
       (switch-to-buffer (mu4e-conversation-thread-buffer thread))))
+  ;; Move point to the message corresponding to the current-docid.
+  (goto-char (point-min))
+  (while (and (not (eobp))
+              (mu4e-message-at-point 'noerror)
+              (not (eq (mu4e-message-field (mu4e-message-at-point 'noerror) :docid)
+                       (mu4e-conversation-thread-current-docid thread))))
+    (mu4e-conversation-next-message))
   (recenter))
 
 (defun mu4e-conversation--show (thread)
