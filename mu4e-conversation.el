@@ -995,16 +995,18 @@ Return nil if there is none."
                mu4e-conversation--thread-buffer-hash)
       buf)))
 
-;; TODO: Replace --update by --print?
 (defun mu4e-conversation--update (thread)
   "If old version of the same thread is already known with a live
 buffer, re-print it."
-  ;; (let ((buf (mu4e-conversation--find-buffer
-  ;;             (car (mu4e-conversation-thread-content thread)))))
-  ;;   (when buf
-  ;;     (puthash buf thread mu4e-conversation--thread-buffer-hash)
-  ;;     (setf (mu4e-conversation-thread-buffer thread) buf)))
-  (mu4e-conversation--print thread))
+  (let ((buf (mu4e-conversation--find-buffer
+              ;; TODO: Is the `car' guaranteed to be in common between the old
+              ;; and the new thread?
+              (car (mu4e-conversation-thread-content thread)))))
+    (when buf
+      ;; TODO: Make sure we handles renamed buffers.
+      ;; (puthash buf thread mu4e-conversation--thread-buffer-hash)
+      (setf (mu4e-conversation-thread-buffer thread) buf)
+      (mu4e-conversation--print thread))))
 
 (defun mu4e-conversation--query-thread (query-function &optional msg)
   "Make a thread containing MSG.
@@ -1031,18 +1033,37 @@ When done, QUERY-FUNCTION is called over the resulting thread."
 
 ;; TODO: Make sure we handle message removal.
 (defun mu4e-conversation--update-handler-extra (msg _is-move)
-  "Run beside the update handler."
-  (mu4e-conversation--query-thread 'mu4e-conversation--update msg))
+  "If MSG belongs to a live-buffer, update the buffer.
+Suitable to be run after the update handler."
+  (let ((thread (and mu4e-conversation--thread-buffer-hash
+                     (gethash (mu4e-conversation--find-buffer msg)
+                              mu4e-conversation--thread-buffer-hash))))
+    (if (not thread)
+        ;; It could be a new message belonging to an already existing thread.
+        (mu4e-conversation--query-thread 'mu4e-conversation--update msg)
+      ;; If MSG can be found in a live-buffer, no need to -query-thread,
+      ;; just manually replace msg in thread and re-print.
+      ;; TODO: Make sure that replacing the thread-content and not the
+      ;; thread-header is enough.
+      (setf (seq-find (lambda (m) (eq (mu4e-message-field m :docid)
+                                      (mu4e-message-field msg :docid)))
+                      (mu4e-conversation-thread-content thread))
+            msg)
+      (mu4e-conversation--print thread))))
 
-(defun mu4e-conversation--show (thread)
-  "Switch to conversation buffer."
-  (mu4e-conversation--update thread)
+(defun mu4e-conversation--switch-to-buffer (thread)
   ;; TODO: Use mu4e's algorithm to select window.
   (let ((viewwin (get-buffer-window (mu4e-conversation-thread-buffer thread))))
     (if (window-live-p viewwin)
         (select-window viewwin)
       (switch-to-buffer (mu4e-conversation-thread-buffer thread))))
   (recenter))
+
+(defun mu4e-conversation--show (thread)
+  "Switch to conversation buffer."
+  (unless (mu4e-conversation-thread-buffer thread)
+    (mu4e-conversation--print thread))
+  (mu4e-conversation--switch-to-buffer thread))
 
 (define-minor-mode mu4e-conversation-mode
   "Replace `mu4e-view' with `mu4e-conversation'."
@@ -1077,7 +1098,13 @@ When done, QUERY-FUNCTION is called over the resulting thread."
   (setq msg (or msg (mu4e-message-at-point)))
   (unless msg
     (mu4e-warn "No message at point"))
-  (mu4e-conversation--query-thread 'mu4e-conversation--show msg))
+  (let ((thread (and mu4e-conversation--thread-buffer-hash
+                     (gethash (mu4e-conversation--find-buffer msg)
+                              mu4e-conversation--thread-buffer-hash))))
+    (if (not thread)
+        (mu4e-conversation--query-thread 'mu4e-conversation--show msg)
+      (setf (mu4e-conversation-thread-current-docid thread) (mu4e-message-field msg :docid))
+      (mu4e-conversation--switch-to-buffer thread))))
 
 (provide 'mu4e-conversation)
 ;;; mu4e-conversation.el ends here
