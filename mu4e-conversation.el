@@ -933,6 +933,12 @@ If MSG is specified, then send this message instead."
       (mu4e-conversation-previous-message)
       (forward-line)
       (delete-region (line-beginning-position 1) (point-max))
+      ;; Ensure it's writable.
+      (insert
+       (propertize "\n"
+                   'face 'mu4e-conversation-header
+                   'rear-nonsticky t
+                   'local-map mu4e-conversation-compose-map))
       (set-buffer-modified-p nil))))
 
 ;; TODO: Can we do better than a global?  We could use `mu4e-get-view-buffer'
