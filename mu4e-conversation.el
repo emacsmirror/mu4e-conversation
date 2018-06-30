@@ -77,7 +77,7 @@
 ;; TODO: Tweak Org indentation?  See `org-adapt-indentation'.
 
 ;; REVIEW: Sometimes messages are not marked as read.
-;; REVIEW: Auto-update conversation buffer when receiving/sending mail.
+;; TODO: Before next index update, display sent message in special area in buffer.  After index update, remove that area.
 ;; TODO: Add convenience functions to check if some recipients have been left out, or to return the list of all recipients.
 ;; TODO: Mark/flag messages that are in thread but not in headers buffer.  See `mu4e-mark-set'.
 ;; TODO: Fine-tune the recipient list display and composition in linear view.
@@ -100,9 +100,8 @@
 
 (cl-defstruct (mu4e-conversation-thread
                (:copier nil)
-               ;; (:constructor nil)
                (:constructor mu4e-conversation--make-thread
-                             (msg &aux (current-docid (mu4e-message-field msg :docid)))))
+                             (&optional msg &aux (current-docid (if msg (mu4e-message-field msg :docid) 0)))))
   "Structure that holds a thread and its associated buffer."
   content
   headers
@@ -1074,16 +1073,15 @@ When done, QUERY-FUNCTION is called over the resulting thread."
      'include-related)))
 
 ;; TODO: Make sure we handle message removal.
-(defun mu4e-conversation--update-handler-extra (msg _is-move)
+(defun mu4e-conversation--update-handler-extra (msg &optional _is-move)
   "If MSG belongs to a live-buffer, update the buffer.
 Suitable to be run after the update handler."
   (let ((thread (and mu4e-conversation--thread-buffer-hash
                      (gethash (mu4e-conversation--find-buffer msg)
                               mu4e-conversation--thread-buffer-hash))))
-    (if (not thread)
-        ;; It could be a new message belonging to an already existing thread.
-        ;; TODO: Can we run a new mu4e-proc inside a handler?
-        (mu4e-conversation--query-thread 'mu4e-conversation--update msg)
+        ;; Messages not matching any thread here are not new.  New messages
+        ;; should be handled via the `mu4e-index-updated-hook'.
+    (when thread
       ;; If MSG can be found in a live-buffer, no need to -query-thread,
       ;; just manually replace msg in thread and re-print.
       ;; TODO: Make sure that replacing the thread-content and not the
@@ -1118,6 +1116,34 @@ Suitable to be run after the update handler."
     (mu4e-conversation--print thread))
   (mu4e-conversation--switch-to-buffer thread))
 
+(defvar mu4e-conversation--last-unread-query-date (format-time-string "%Y-%m-%dT%H:%M:%S"))
+(defun mu4e-conversation--sync-new-messages (list-of-messages)
+  "Re-print view buffers with new messages"
+  (dolist (msg (mu4e-conversation-thread-content list-of-messages))
+    (mu4e-conversation--query-thread 'mu4e-conversation--update msg))
+  (setq mu4e-conversation--last-unread-query-date
+        (format-time-string "%Y-%m-%dT%H:%M:%S")))
+
+(defun mu4e-conversation--query-unread ()
+  "Query all unread messages.
+This is useful after an index update to include the new messages
+in existing view buffers. "
+  (setq mu4e-conversation--query-function 'mu4e-conversation--sync-new-messages)
+  (setq mu4e-conversation--last-thread (mu4e-conversation--make-thread))
+  (advice-add mu4e-header-func :override 'mu4e-conversation--header-handler)
+  (advice-add mu4e-erase-func :override 'mu4e-conversation--erase-handler)
+  (advice-add mu4e-found-func :override 'mu4e-conversation--found-handler)
+  (mu4e~proc-find
+   ;; `mu4e-query-rewrite-function' seems to be missing from mu<1.0.
+   (funcall (or mu4e-query-rewrite-function 'identity)
+            (format "flag:unread and date:%s..now" mu4e-conversation--last-unread-query-date))
+   (not 'show-threads)
+   :date
+   'ascending
+   (not 'limited)
+   'skip-duplicates
+   (not 'include-related)))
+
 (define-minor-mode mu4e-conversation-mode
   "Replace `mu4e-view' with `mu4e-conversation'."
   :init-value nil
@@ -1128,6 +1154,7 @@ Suitable to be run after the update handler."
         (advice-add 'mu4e-view-save-attachment-multi :before 'mu4e-conversation-set-attachment)
         (advice-add 'mu4e-view-open-attachment :before 'mu4e-conversation-set-attachment)
         (advice-add mu4e-update-func :after 'mu4e-conversation--update-handler-extra)
+        (add-hook 'mu4e-index-updated-hook 'mu4e-conversation--query-unread)
         ;; We must set the variable and not override its function because we
         ;; will need the override later.
         (setq mu4e-view-func 'mu4e-conversation))
@@ -1136,6 +1163,7 @@ Suitable to be run after the update handler."
     (advice-remove 'mu4e-view-open-attachment 'mu4e-conversation-set-attachment)
     (advice-remove 'mu4e~headers-redraw-get-view-window 'mu4e-conversation--headers-redraw-get-view-window)
     (advice-remove mu4e-update-func 'mu4e-conversation--update-handler-extra)
+    (remove-hook 'mu4e-index-updated-hook 'mu4e-conversation--query-unread)
     (setq mu4e-view-func 'mu4e~headers-view-handler)
     (setq kill-buffer-query-functions (delq 'mu4e-conversation-kill-buffer-query-function kill-buffer-query-functions))))
 
