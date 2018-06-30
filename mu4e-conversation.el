@@ -1110,7 +1110,8 @@ Suitable to be run after the update handler."
     (advice-remove 'mu4e-view-open-attachment 'mu4e-conversation-set-attachment)
     (advice-remove 'mu4e~headers-redraw-get-view-window 'mu4e-conversation--headers-redraw-get-view-window)
     (advice-remove mu4e-update-func 'mu4e-conversation--update-handler-extra)
-    (setq mu4e-view-func 'mu4e~headers-view-handler)))
+    (setq mu4e-view-func 'mu4e~headers-view-handler)
+    (setq kill-buffer-query-functions (delq 'mu4e-conversation-kill-buffer-query-function kill-buffer-query-functions))))
 
 (defun mu4e-conversation--turn-on ()
   "Turn on `mu4e-conversation-mode'."
