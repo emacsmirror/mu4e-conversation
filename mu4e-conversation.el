@@ -1012,8 +1012,12 @@ Return nil if there is none."
   (when mu4e-conversation--thread-buffer-hash
     (let (buf)
       (maphash (lambda (buffer thread)
-                 (when (memq msg (mu4e-conversation-thread-content thread))
-                   (setq buf (mu4e-conversation-thread-content buffer))))
+                 (when (or (memq msg (mu4e-conversation-thread-content thread))
+                           (seq-find (lambda (m)
+                                       (eq (mu4e-message-field m :docid)
+                                           (mu4e-message-field msg :docid)))
+                                     (mu4e-conversation-thread-content thread)))
+                   (setq buf buffer)))
                mu4e-conversation--thread-buffer-hash)
       buf)))
 
