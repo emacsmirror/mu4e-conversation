@@ -509,6 +509,7 @@ mu4e-conversation-buffer-name-format title) and create it if necessary.
         ;; If point meets an Org property block, skip it at once.
         (goto-char end)))))
 
+;; TODO: Restore draft in composition area.
 (defun mu4e-conversation--print (thread &optional print-function)
   "Print the conversation in the buffer associated to the THREAD.
 If PRINT-FUNCTION is nil, use `mu4e-conversation-print-function'."
@@ -1002,7 +1003,7 @@ See `mu4e~proc-filter'"
   (advice-remove mu4e-erase-func 'mu4e-conversation--erase-handler)
   (advice-remove mu4e-found-func 'mu4e-conversation--found-handler)
   (advice-add mu4e-view-func :override 'mu4e-conversation--view-handler)
-  (dolist (msg (mu4e-conversation-thread-headers  mu4e-conversation--last-thread))
+  (dolist (msg (mu4e-conversation-thread-headers mu4e-conversation--last-thread))
     (let ((docid (mu4e-message-field msg :docid))
           ;; decrypt (or not), based on `mu4e-decryption-policy'.
           (decrypt
@@ -1073,6 +1074,7 @@ Suitable to be run after the update handler."
                               mu4e-conversation--thread-buffer-hash))))
     (if (not thread)
         ;; It could be a new message belonging to an already existing thread.
+        ;; TODO: Can we run a new mu4e-proc inside a handler?
         (mu4e-conversation--query-thread 'mu4e-conversation--update msg)
       ;; If MSG can be found in a live-buffer, no need to -query-thread,
       ;; just manually replace msg in thread and re-print.
@@ -1084,6 +1086,7 @@ Suitable to be run after the update handler."
             msg)
       (mu4e-conversation--print thread))))
 
+;; TODO: Merge --show and --switch-to-buffer?
 (defun mu4e-conversation--switch-to-buffer (thread)
   (unless (buffer-live-p (mu4e-conversation-thread-buffer thread))
     (mu4e-conversation--print thread))
