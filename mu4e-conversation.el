@@ -321,11 +321,11 @@ messages.  A negative COUNT goes backwards."
   (if (eq major-mode 'org-mode)
       (org-next-visible-heading count)
     (let ((move-function (if (< count 0)
-                             'previous-char-property-change
-                           'next-char-property-change)))
+                             'previous-single-char-property-change
+                           'next-single-char-property-change)))
       (setq count (abs count))
       (dotimes (_ count)
-        (while (and (goto-char (funcall move-function (point)))
+        (while (and (goto-char (funcall move-function (point) 'face))
                     (not (eq (get-text-property (point) 'face) 'mu4e-conversation-header))
                     (not (eobp))))))))
 
