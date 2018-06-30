@@ -1035,7 +1035,7 @@ buffer, re-print it."
               ;; TODO: Is the `car' guaranteed to be in common between the old
               ;; and the new thread?
               (car (mu4e-conversation-thread-content thread)))))
-    (when buf
+    (when (buffer-live-p buf)
       ;; TODO: Make sure we handles renamed buffers.
       ;; (puthash buf thread mu4e-conversation--thread-buffer-hash)
       (setf (mu4e-conversation-thread-buffer thread) buf)
