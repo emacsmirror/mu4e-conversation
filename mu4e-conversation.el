@@ -340,14 +340,16 @@ messages.  A negative COUNT goes backwards."
 
 (defun mu4e-conversation-kill-buffer-query-function ()
   "Ask before killing a modified mu4e conversation buffer."
-  (when (or (not (mu4e-conversation--buffer-p))
-            (not (buffer-modified-p))
-            (yes-or-no-p  "Reply message has been modified.  Kill anyway? "))
-    ;; Mark all messages as read.
-    (dolist (msg (mu4e-conversation-thread-content
-                  (gethash (current-buffer mu4e-conversation--thread-buffer-hash)))
-                 t)
-      (mu4e~view-mark-as-read-maybe msg))))
+  (let (conv-buffer)
+    (when (or (not (buffer-modified-p))
+              (not (setq conv-buffer (mu4e-conversation--buffer-p)))
+              (yes-or-no-p  "Reply message has been modified.  Kill anyway? "))
+      (when conv-buffer
+        ;; Mark all messages as read.
+        (dolist (msg (mu4e-conversation-thread-content
+                      (gethash (current-buffer) mu4e-conversation--thread-buffer-hash)))
+          (mu4e~view-mark-as-read-maybe msg)))
+      t)))
 
 (defun mu4e-conversation-quit (&optional no-confirm)
   "Quit conversation window.
