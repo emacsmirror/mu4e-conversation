@@ -348,7 +348,8 @@ messages.  A negative COUNT goes backwards."
         ;; Mark all messages as read.
         (dolist (msg (mu4e-conversation-thread-content
                       (gethash (current-buffer) mu4e-conversation--thread-buffer-hash)))
-          (mu4e~view-mark-as-read-maybe msg)))
+          (mu4e~view-mark-as-read-maybe msg))
+        (remhash (current-buffer) mu4e-conversation--thread-buffer-hash))
       t)))
 
 (defun mu4e-conversation-quit (&optional no-confirm)
@@ -366,6 +367,7 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
     (dolist (msg (mu4e-conversation-thread-content
                   (gethash (current-buffer) mu4e-conversation--thread-buffer-hash)))
       (mu4e~view-mark-as-read-maybe msg))
+    (remhash (current-buffer) mu4e-conversation--thread-buffer-hash)
     ;; Don't ask for confirmation again in the `kill-buffer-query-functions'.
     (set-buffer-modified-p nil)
     ;; `mu4e~view-quit-buffer' must be called from a buffer in `mu4e-view-mode'.
