@@ -515,7 +515,7 @@ If PRINT-FUNCTION is nil, use `mu4e-conversation-print-function'."
                            mu4e-conversation-print-function))
   (setf (mu4e-conversation-thread-print-function thread) print-function)
   (let (line column current-message)
-    (if (mu4e-conversation-thread-buffer thread)
+    (if (buffer-live-p (mu4e-conversation-thread-buffer thread))
         (setq line (mu4e-conversation--line-number (mu4e-conversation-thread-buffer thread))
             column (with-current-buffer (mu4e-conversation-thread-buffer thread)
                      (- (point) (line-beginning-position)))
@@ -1072,6 +1072,8 @@ Suitable to be run after the update handler."
       (mu4e-conversation--print thread))))
 
 (defun mu4e-conversation--switch-to-buffer (thread)
+  (unless (buffer-live-p (mu4e-conversation-thread-buffer thread))
+    (mu4e-conversation--print thread))
   ;; TODO: Use mu4e's algorithm to select window.
   (let ((viewwin (get-buffer-window (mu4e-conversation-thread-buffer thread))))
     (if (window-live-p viewwin)
@@ -1088,7 +1090,7 @@ Suitable to be run after the update handler."
 
 (defun mu4e-conversation--show (thread)
   "Switch to conversation buffer."
-  (unless (mu4e-conversation-thread-buffer thread)
+  (unless (buffer-live-p (mu4e-conversation-thread-buffer thread))
     (mu4e-conversation--print thread))
   (mu4e-conversation--switch-to-buffer thread))
 
