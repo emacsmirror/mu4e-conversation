@@ -370,62 +370,11 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
   (when (and buffer-undo-list
              (not (yes-or-no-p "Undo list will be reset after switching view.  Continue? ")))
     (mu4e-warn "Keeping undo list"))
-  ;; Org properties skew line calculation, so remove it first.
-  (let ((inhibit-read-only t)
-        (block (org-get-property-block))
-        (modified (buffer-modified-p))
-        begin)
-    (when block
-      (save-excursion
-        (goto-char (car block))
-        (forward-line -1)
-        (setq begin (point))
-        (goto-char (cdr block))
-        (forward-line 1)
-        (delete-region begin (point)))
-      (set-buffer-modified-p modified)))
-  (let* ((current-message (mu4e-message-at-point 'no-error))
-         (line-offset (save-excursion
-                        (let ((current-line (line-number-at-pos)))
-                          (mu4e-conversation-previous-message)
-                          (if (or (not current-message)
-                                  ;; current-message might be nil when point is in a draft.
-                                  (eq current-message (mu4e-message-at-point 'no-error)))
-                              (- current-line (line-number-at-pos))
-                            0))))
-         (column (- (point) (line-beginning-position))))
-    (mu4e-conversation--print
-     (gethash (current-buffer) mu4e-conversation--thread-buffer-hash)
-     (if (eq major-mode 'org-mode)
-         'mu4e-conversation-print-linear
-       'mu4e-conversation-print-tree))
-    ;; Restore point.
-    (if (not current-message)
-        ;; Draft.
-        (progn
-          (goto-char (point-max))
-          (mu4e-conversation-previous-message))
-      (goto-char (point-min))
-      (while (and (not (eobp))
-                  (not (eq current-message (mu4e-message-at-point 'no-error))))
-        (mu4e-conversation-next-message)))
-    (let ((block (org-get-property-block))
-          begin end)
-      (when block
-        (save-excursion
-          (goto-char (car block))
-          (forward-line -1)
-          (setq begin (point))
-          (goto-char (cdr block))
-          (forward-line 1)
-          (setq end (point))))
-      (dotimes (_ line-offset)
-        (forward-line)
-        (when (and block
-                   (<= begin (point) end))
-          ;; If point meets an Org property block, skip it at once.
-          (goto-char end))))
-    (move-to-column column)))
+  (mu4e-conversation--print
+   (gethash (current-buffer) mu4e-conversation--thread-buffer-hash)
+   (if (eq major-mode 'org-mode)
+       'mu4e-conversation-print-linear
+     'mu4e-conversation-print-tree)))
 
 (defun mu4e-conversation--body-without-signature (message)
   "Return the message body (a string) stripped from its signature."
@@ -488,6 +437,64 @@ mu4e-conversation-buffer-name-format title) and create it if necessary.
                   (t ;; no splitting; just use the currently selected one
                    (selected-window)))))))
 
+(defun mu4e-conversation--line-number ()
+  "Return current line-number relative to the message at point."
+  (let ((block (org-get-property-block))
+        begin end)
+    (when block
+      ;; Skip Org block.
+      (save-excursion
+        (goto-char (car block))
+        (forward-line -1)
+        (setq begin (point))
+        (goto-char (cdr block))
+        (forward-line 1)
+        (setq end (point)))
+      (cond
+       ((< end (point))
+        (forward-line (- (line-number-at-pos begin)
+                         (line-number-at-pos end))))
+       ((<= begin (point))
+        (goto-char begin)
+        (forward-line -1))))
+    (let ((current-message (mu4e-message-at-point 'no-error))
+          (save-excursion
+            (let ((current-line (line-number-at-pos)))
+              (mu4e-conversation-previous-message)
+              (if (or (not current-message)
+                      ;; current-message might be nil when point is in a draft.
+                      (eq current-message (mu4e-message-at-point 'no-error)))
+                  (- current-line (line-number-at-pos))
+                0)))))))
+
+(defun mu4e-conversation--goto-line (current-message relative-line-number)
+  "Go to RELATIVE-LINE-NUMBER, relative to the CURRENT-MESSAGE."
+  (if (not current-message)
+      ;; Draft.
+      (progn
+        (goto-char (point-max))
+        (mu4e-conversation-previous-message))
+    (goto-char (point-min))
+    (while (and (not (eobp))
+                (not (eq current-message (mu4e-message-at-point 'no-error))))
+      (mu4e-conversation-next-message)))
+  (let ((block (org-get-property-block))
+        begin end)
+    (when block
+      (save-excursion
+        (goto-char (car block))
+        (forward-line -1)
+        (setq begin (point))
+        (goto-char (cdr block))
+        (forward-line 1)
+        (setq end (point))))
+    (dotimes (_ line-offset)
+      (forward-line)
+      (when (and block
+                 (<= begin (point) end))
+        ;; If point meets an Org property block, skip it at once.
+        (goto-char end)))))
+
 (defun mu4e-conversation--print (thread &optional print-function)
   "Print the conversation in the buffer associated to the THREAD.
 If PRINT-FUNCTION is nil, use `mu4e-conversation-print-function'."
@@ -497,117 +504,124 @@ If PRINT-FUNCTION is nil, use `mu4e-conversation-print-function'."
                            (mu4e-conversation-thread-print-function thread)
                            mu4e-conversation-print-function))
   (setf (mu4e-conversation-thread-print-function thread) print-function)
-  (unless (mu4e-conversation-thread-buffer thread)
-    (setf (mu4e-conversation-thread-buffer thread)
-          (mu4e-conversation--get-buffer (mu4e-message-field
-                                          (car (mu4e-conversation-thread-headers thread))
-                                          :subject))))
-  (with-current-buffer (mu4e-conversation-thread-buffer thread)
-    ;; Register buffer as a conversation buffer.
-    ;; This is used by `mu4e-conversation--buffer-p'.
-    ;; Must set this here for the rest of the functions to work,
-    ;; e.g. `mu4e-conversation-previous-message'.
-    (unless mu4e-conversation--thread-buffer-hash
-      (setq mu4e-conversation--thread-buffer-hash (make-hash-table)))
-    (puthash (current-buffer) thread mu4e-conversation--thread-buffer-hash)
-    (let* ((current-message-pos 0)
-           (index 0)
-           ;; If we want to re-order a thread, let's do it on a copy so that we
-           ;; don't lose the tree structure.
-           (thread-content-sorted (mu4e-conversation-thread-content thread))
-           (thread-headers-sorted (mu4e-conversation-thread-headers thread))
-           (inhibit-read-only t)
-           ;; Extra care must be taken to copy along the draft with its properties, in
-           ;; case it wasn't saved.
-           (draft-text (when (buffer-modified-p)
-                         (buffer-substring (save-excursion
-                                             (goto-char (point-max))
-                                             (mu4e-conversation-previous-message)
-                                             (forward-line)
-                                             (point))
-                                           (point-max))))
-           (buffer-modified (buffer-modified-p))
-           draft-messages)
-      (when (eq print-function
-                'mu4e-conversation-print-linear)
-        ;; In linear view, it makes more sense to sort messages chronologically.
-        (let ((filter (lambda (seq)
-                        (sort (copy-seq seq)
-                              (lambda (msg1 msg2)
-                                (time-less-p (mu4e-message-field msg1 :date)
-                                             (mu4e-message-field msg2 :date)))))))
-          (setq thread-content-sorted (funcall filter thread-content-sorted)
-                thread-headers-sorted (funcall filter thread-headers-sorted))))
-      (erase-buffer)
-      (delete-all-overlays)
-      (dolist (msg thread-content-sorted)
-        (if (member 'draft (mu4e-message-field msg :flags))
-            (push msg draft-messages)
-          (let ((begin (point)))
-            (funcall print-function
-                     index
-                     thread-content-sorted
-                     thread-headers-sorted)
-            (mu4e~view-show-images-maybe msg)
+  (let (line column current-message)
+    (if (mu4e-conversation-thread-buffer thread)
+        (setf (mu4e-conversation-thread-buffer thread)
+              (mu4e-conversation--get-buffer (mu4e-message-field
+                                              (car (mu4e-conversation-thread-headers thread))
+                                              :subject)))
+      (setq line (mu4e-conversation--line-number (mu4e-conversation-thread-buffer thread))
+            column (with-current-buffer (mu4e-conversation-thread-buffer thread)
+                     (column (- (point) (line-beginning-position))))
+            current-message (mu4e-message-at-point 'noerror)))
+    (with-current-buffer (mu4e-conversation-thread-buffer thread)
+      ;; Register buffer as a conversation buffer.
+      ;; This is used by `mu4e-conversation--buffer-p'.
+      ;; Must set this here for the rest of the functions to work,
+      ;; e.g. `mu4e-conversation-previous-message'.
+      (unless mu4e-conversation--thread-buffer-hash
+        (setq mu4e-conversation--thread-buffer-hash (make-hash-table)))
+      (puthash (current-buffer) thread mu4e-conversation--thread-buffer-hash)
+      (let* ((index 0)
+             ;; If we want to re-order a thread, let's do it on a copy so that we
+             ;; don't lose the tree structure.
+             (thread-content-sorted (mu4e-conversation-thread-content thread))
+             (thread-headers-sorted (mu4e-conversation-thread-headers thread))
+             (inhibit-read-only t)
+             ;; Extra care must be taken to copy along the draft with its properties, in
+             ;; case it wasn't saved.
+             (draft-text (when (buffer-modified-p)
+                           (buffer-substring (save-excursion
+                                               (goto-char (point-max))
+                                               (mu4e-conversation-previous-message)
+                                               (forward-line)
+                                               (point))
+                                             (point-max))))
+             (buffer-modified (buffer-modified-p))
+             draft-messages)
+        (when (eq print-function
+                  'mu4e-conversation-print-linear)
+          ;; In linear view, it makes more sense to sort messages chronologically.
+          (let ((filter (lambda (seq)
+                          (sort (copy-seq seq)
+                                (lambda (msg1 msg2)
+                                  (time-less-p (mu4e-message-field msg1 :date)
+                                               (mu4e-message-field msg2 :date)))))))
+            (setq thread-content-sorted (funcall filter thread-content-sorted)
+                  thread-headers-sorted (funcall filter thread-headers-sorted))))
+        (erase-buffer)
+        (delete-all-overlays)
+        (dolist (msg thread-content-sorted)
+          (if (member 'draft (mu4e-message-field msg :flags))
+              (push msg draft-messages)
+            (let ((begin (point)))
+              (funcall print-function
+                       index
+                       thread-content-sorted
+                       thread-headers-sorted)
+              (mu4e~view-show-images-maybe msg)
+              (goto-char (point-max))
+              (add-text-properties begin (point) (list 'msg msg)))
+            (insert (propertize "\n" 'msg msg)) ; Insert a final newline after potential images.
+            ;; (mu4e~view-mark-as-read-maybe msg) ; TODO: Do that in quit / kill-buffer-query-function so that updates don't disturb the display.
+            (goto-char (point-max)))
+          (setq index (1+ index)))
+        (add-text-properties (point-min) (point-max) '(read-only t))
+        (insert (propertize (format "%sCompose new message:" (if (eq major-mode 'org-mode) "* NEW " ""))
+                            'face 'mu4e-conversation-header 'read-only t)
+                (propertize "\n"
+                            'face 'mu4e-conversation-header
+                            'rear-nonsticky t
+                            'local-map mu4e-conversation-compose-map)
+                (if draft-messages ""
+                  (propertize
+                   "\n"
+                   'local-map mu4e-conversation-compose-map
+                   'front-sticky t)))
+        (cond
+         (draft-text
+          (save-excursion
             (goto-char (point-max))
-            (add-text-properties begin (point) (list 'msg msg)))
-          (insert (propertize "\n" 'msg msg)) ; Insert a final newline after potential images.
-          ;; (mu4e~view-mark-as-read-maybe msg) ; TODO: Do that in quit / kill-buffer-query-function so that updates don't disturb the display.
-          (goto-char (point-max)))
-        (setq index (1+ index)))
-      (add-text-properties (point-min) (point-max) '(read-only t))
-      (insert (propertize (format "%sCompose new message:" (if (eq major-mode 'org-mode) "* NEW " ""))
-                          'face 'mu4e-conversation-header 'read-only t)
-              (propertize "\n"
-                          'face 'mu4e-conversation-header
-                          'rear-nonsticky t
-                          'local-map mu4e-conversation-compose-map)
-              (if draft-messages ""
-                (propertize
-                 "\n"
-                 'local-map mu4e-conversation-compose-map
-                 'front-sticky t)))
-      (cond
-       (draft-text
-        (save-excursion
-          (goto-char (point-max))
-          (mu4e-conversation-previous-message)
-          (forward-line)
-          (delete-region (point) (point-max))
-          (insert draft-text)))
-       (draft-messages
-        ;; REVIEW: Discard signature.
-        (add-text-properties
-         (save-excursion (mu4e-conversation-previous-message)
-                         (point))
-         (point-max)
-         (list 'msg (car draft-messages)))
-        (if (= (length draft-messages) 1)
-            (insert (propertize (mu4e-conversation--body-without-signature (car draft-messages))
-                                'msg (car draft-messages)
-                                'local-map mu4e-conversation-compose-map
-                                'front-sticky t))
-          (warn "Multiple drafts found.  You must clean up the drafts manually.")
-          (let ((count 1))
-            (dolist (draft draft-messages)
-              (insert (propertize (concat (format "--Draft #%s--\n" count)
-                                          (mu4e-conversation--body-without-signature draft))
-                                  'msg (car draft-messages) ; Use first draft file.
+            (mu4e-conversation-previous-message)
+            (forward-line)
+            (delete-region (point) (point-max))
+            (insert draft-text)))
+         (draft-messages
+          ;; REVIEW: Discard signature.
+          (add-text-properties
+           (save-excursion (mu4e-conversation-previous-message)
+                           (point))
+           (point-max)
+           (list 'msg (car draft-messages)))
+          (if (= (length draft-messages) 1)
+              (insert (propertize (mu4e-conversation--body-without-signature (car draft-messages))
+                                  'msg (car draft-messages)
                                   'local-map mu4e-conversation-compose-map
                                   'front-sticky t))
-              (setq count (1+ count)))))))
-      (goto-char current-message-pos)
-      (unless (eq major-mode 'org-mode)
-        (mu4e~view-make-urls-clickable)) ; TODO: Don't discard sender face.
-      (setq header-line-format (propertize
-                                (mu4e-message-field (car thread-content-sorted) :subject)
-                                'face 'bold))
-      (add-to-invisibility-spec '(mu4e-conversation-quote . t))
-      (set-buffer-modified-p buffer-modified)
-      (add-to-list 'kill-buffer-query-functions 'mu4e-conversation-kill-buffer-query-function)
-      ;; TODO: Undo history is not preserved accross redisplays.
-      (buffer-disable-undo)             ; Reset `buffer-undo-list'.
-      (buffer-enable-undo))))
+            (warn "Multiple drafts found.  You must clean up the drafts manually.")
+            (let ((count 1))
+              (dolist (draft draft-messages)
+                (insert (propertize (concat (format "--Draft #%s--\n" count)
+                                            (mu4e-conversation--body-without-signature draft))
+                                    'msg (car draft-messages) ; Use first draft file.
+                                    'local-map mu4e-conversation-compose-map
+                                    'front-sticky t))
+                (setq count (1+ count)))))))
+        (unless (eq major-mode 'org-mode)
+          (mu4e~view-make-urls-clickable)) ; TODO: Don't discard sender face.
+        (setq header-line-format (propertize
+                                  (mu4e-message-field (car thread-content-sorted) :subject)
+                                  'face 'bold))
+        (add-to-invisibility-spec '(mu4e-conversation-quote . t))
+        (set-buffer-modified-p buffer-modified)
+        (add-to-list 'kill-buffer-query-functions 'mu4e-conversation-kill-buffer-query-function)
+        ;; TODO: Undo history is not preserved accross redisplays.
+        (buffer-disable-undo)           ; Reset `buffer-undo-list'.
+        (buffer-enable-undo)
+        (when line
+          ;; Restore point.
+          (mu4e-conversation--goto-line current-message line)
+          (move-to-column column))))))
 
 (defun mu4e-conversation--get-message-face (index thread)
   "Map 'from' addresses to 'sender-N' faces in chronological
