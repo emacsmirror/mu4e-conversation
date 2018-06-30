@@ -923,7 +923,12 @@ If MSG is specified, then send this message instead."
                (widen))))
     (if draft-buf
         (switch-to-buffer draft-buf)
-      (mu4e-conversation-quit 'no-confirm))))
+      ;; Delete message that was just sent.
+      (goto-char (point-max))
+      (mu4e-conversation-previous-message)
+      (forward-line)
+      (delete-region (line-beginning-position 1) (point-max))
+      (set-buffer-modified-p nil))))
 
 ;; TODO: Can we do better than a global?  We could use `mu4e-get-view-buffer'
 ;; but that would only work if the buffer has not been renamed.  With
