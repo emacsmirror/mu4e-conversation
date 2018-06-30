@@ -69,15 +69,15 @@
 ;; transparently (e.g. ":w" with Evil).  Problem is that the draft buffer and
 ;; the conversation view are different buffers.
 
-;; TODO: Views should be structure with
+;; TODO: Views should be structures with
 ;; - Thread sort function
 ;; - Previous / next function
 ;; - Print function
 ;; TODO: Indent user messages?  Make formatting more customizable.
 ;; TODO: Tweak Org indentation?  See `org-adapt-indentation'.
 
-;; TODO: Sometimes messages are not marked as read.
-;; TODO: Auto-update conversation buffer when receiving/sending mail.
+;; REVIEW: Sometimes messages are not marked as read.
+;; REVIEW: Auto-update conversation buffer when receiving/sending mail.
 ;; TODO: Add convenience functions to check if some recipients have been left out, or to return the list of all recipients.
 ;; TODO: Mark/flag messages that are in thread but not in headers buffer.  See `mu4e-mark-set'.
 ;; TODO: Fine-tune the recipient list display and composition in linear view.
@@ -340,9 +340,14 @@ messages.  A negative COUNT goes backwards."
 
 (defun mu4e-conversation-kill-buffer-query-function ()
   "Ask before killing a modified mu4e conversation buffer."
-  (or (not (mu4e-conversation--buffer-p))
-      (not (buffer-modified-p))
-      (yes-or-no-p  "Reply message has been modified.  Kill anyway? ")))
+  (when (or (not (mu4e-conversation--buffer-p))
+            (not (buffer-modified-p))
+            (yes-or-no-p  "Reply message has been modified.  Kill anyway? "))
+    ;; Mark all messages as read.
+    (dolist (msg (mu4e-conversation-thread-content
+                  (gethash (current-buffer mu4e-conversation--thread-buffer-hash)))
+                 t)
+      (mu4e~view-mark-as-read-maybe msg))))
 
 (defun mu4e-conversation-quit (&optional no-confirm)
   "Quit conversation window.
@@ -355,6 +360,10 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
   (when (or no-confirm
             (not (buffer-modified-p))
             (yes-or-no-p "Reply message has been modified.  Kill anyway? "))
+    ;; Mark all messages as read.
+    (dolist (msg (mu4e-conversation-thread-content
+                  (gethash (current-buffer) mu4e-conversation--thread-buffer-hash)))
+      (mu4e~view-mark-as-read-maybe msg))
     ;; Don't ask for confirmation again in the `kill-buffer-query-functions'.
     (set-buffer-modified-p nil)
     ;; `mu4e~view-quit-buffer' must be called from a buffer in `mu4e-view-mode'.
@@ -437,38 +446,39 @@ mu4e-conversation-buffer-name-format title) and create it if necessary.
                   (t ;; no splitting; just use the currently selected one
                    (selected-window)))))))
 
-(defun mu4e-conversation--line-number ()
+(defun mu4e-conversation--line-number (thread-buffer)
   "Return current line-number relative to the message at point."
-  (let ((block (org-get-property-block))
-        begin end)
-    (when block
-      ;; Skip Org block.
-      (save-excursion
-        (goto-char (car block))
-        (forward-line -1)
-        (setq begin (point))
-        (goto-char (cdr block))
-        (forward-line 1)
-        (setq end (point)))
-      (cond
-       ((< end (point))
-        (forward-line (- (line-number-at-pos begin)
-                         (line-number-at-pos end))))
-       ((<= begin (point))
-        (goto-char begin)
-        (forward-line -1))))
-    (let ((current-message (mu4e-message-at-point 'no-error))
-          (save-excursion
-            (let ((current-line (line-number-at-pos)))
-              (mu4e-conversation-previous-message)
-              (if (or (not current-message)
-                      ;; current-message might be nil when point is in a draft.
-                      (eq current-message (mu4e-message-at-point 'no-error)))
-                  (- current-line (line-number-at-pos))
-                0)))))))
+  (with-current-buffer thread-buffer
+    (let ((block (org-get-property-block))
+          begin end)
+      (when block
+        ;; Skip Org block.
+        (save-excursion
+          (goto-char (car block))
+          (forward-line -1)
+          (setq begin (point))
+          (goto-char (cdr block))
+          (forward-line 1)
+          (setq end (point)))
+        (cond
+         ((< end (point))
+          (forward-line (- (line-number-at-pos begin)
+                           (line-number-at-pos end))))
+         ((<= begin (point))
+          (goto-char begin)
+          (forward-line -1))))
+      (let ((current-message (mu4e-message-at-point 'no-error)))
+        (save-excursion
+          (let ((current-line (line-number-at-pos)))
+            (mu4e-conversation-previous-message)
+            (if (or (not current-message)
+                    ;; current-message might be nil when point is in a draft.
+                    (eq current-message (mu4e-message-at-point 'no-error)))
+                (- current-line (line-number-at-pos))
+              0)))))))
 
-(defun mu4e-conversation--goto-line (current-message relative-line-number)
-  "Go to RELATIVE-LINE-NUMBER, relative to the CURRENT-MESSAGE."
+(defun mu4e-conversation--goto-line (current-message line-offset)
+  "Go to LINE-OFFSET, relative to the CURRENT-MESSAGE."
   (if (not current-message)
       ;; Draft.
       (progn
@@ -506,14 +516,14 @@ If PRINT-FUNCTION is nil, use `mu4e-conversation-print-function'."
   (setf (mu4e-conversation-thread-print-function thread) print-function)
   (let (line column current-message)
     (if (mu4e-conversation-thread-buffer thread)
-        (setf (mu4e-conversation-thread-buffer thread)
+        (setq line (mu4e-conversation--line-number (mu4e-conversation-thread-buffer thread))
+            column (with-current-buffer (mu4e-conversation-thread-buffer thread)
+                     (- (point) (line-beginning-position)))
+            current-message (mu4e-message-at-point 'noerror))
+      (setf (mu4e-conversation-thread-buffer thread)
               (mu4e-conversation--get-buffer (mu4e-message-field
                                               (car (mu4e-conversation-thread-headers thread))
-                                              :subject)))
-      (setq line (mu4e-conversation--line-number (mu4e-conversation-thread-buffer thread))
-            column (with-current-buffer (mu4e-conversation-thread-buffer thread)
-                     (column (- (point) (line-beginning-position))))
-            current-message (mu4e-message-at-point 'noerror)))
+                                              :subject))))
     (with-current-buffer (mu4e-conversation-thread-buffer thread)
       ;; Register buffer as a conversation buffer.
       ;; This is used by `mu4e-conversation--buffer-p'.
@@ -563,7 +573,6 @@ If PRINT-FUNCTION is nil, use `mu4e-conversation-print-function'."
               (goto-char (point-max))
               (add-text-properties begin (point) (list 'msg msg)))
             (insert (propertize "\n" 'msg msg)) ; Insert a final newline after potential images.
-            ;; (mu4e~view-mark-as-read-maybe msg) ; TODO: Do that in quit / kill-buffer-query-function so that updates don't disturb the display.
             (goto-char (point-max)))
           (setq index (1+ index)))
         (add-text-properties (point-min) (point-max) '(read-only t))
