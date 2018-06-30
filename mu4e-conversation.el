@@ -341,8 +341,10 @@ messages.  A negative COUNT goes backwards."
 (defun mu4e-conversation-kill-buffer-query-function ()
   "Ask before killing a modified mu4e conversation buffer."
   (let (conv-buffer)
-    (when (or (not (buffer-modified-p))
-              (not (setq conv-buffer (mu4e-conversation--buffer-p)))
+    ;; We need to check if it is a conversation buffer first so that we know if
+    ;; we need to run the exit cleanup.
+    (when (or (not (setq conv-buffer (mu4e-conversation--buffer-p)))
+              (not (buffer-modified-p))
               (yes-or-no-p  "Reply message has been modified.  Kill anyway? "))
       (when conv-buffer
         ;; Mark all messages as read.
