@@ -1086,10 +1086,10 @@ Suitable to be run after the update handler."
       ;; just manually replace msg in thread and re-print.
       ;; TODO: Make sure that replacing the thread-content and not the
       ;; thread-header is enough.
-      (setf (seq-find (lambda (m) (eq (mu4e-message-field m :docid)
-                                      (mu4e-message-field msg :docid)))
-                      (mu4e-conversation-thread-content thread))
-            msg)
+      (cl-nsubstitute-if msg
+                         (lambda (m) (eq (mu4e-message-field m :docid)
+                                         (mu4e-message-field msg :docid)))
+                         (mu4e-conversation-thread-content thread))
       (mu4e-conversation--print thread))))
 
 ;; TODO: Merge --show and --switch-to-buffer?
