@@ -77,6 +77,7 @@
 ;; TODO: Tweak Org indentation?  See `org-adapt-indentation'.
 
 ;; REVIEW: Sometimes messages are not marked as read.
+;; TODO: When updating new message, mark previous ones as read.
 ;; TODO: Before next index update, display sent message in special area in buffer.  After index update, remove that area.
 ;; TODO: Add convenience functions to check if some recipients have been left out, or to return the list of all recipients.
 ;; TODO: Mark/flag messages that are in thread but not in headers buffer.  See `mu4e-mark-set'.
@@ -111,6 +112,10 @@
 
 (defvar mu4e-conversation--last-thread nil
   "A global variable for passing the queried around the mu server.")
+
+(defvar mu4e-conversation--last-query-timestamp nil
+  "Timestamp of the last query.
+This can be used to know which message is \"new\".")
 
 (defvar mu4e-conversation--thread-buffer-hash nil
   "A global hash map where keys are conversation buffers and values are threads.
@@ -417,8 +422,9 @@ mu4e-conversation-buffer-name-format title) and create it if necessary.
    (t (seq-find #'mu4e-conversation--buffer-p
                 (buffer-list)))))
 
-;; (defun mu4e-conversation--make-title (thread)
-;;   "Return the default buffer name for THREAD."
+;; TODO: Use this.
+;; (defun mu4e-conversation--title (thread)
+;;   "Return THREAD title, that is, the subject of the first message."
 ;;   (mu4e-message-field
 ;;    (car (mu4e-conversation-thread-headers thread)) :subject))
 
@@ -1006,6 +1012,7 @@ See `mu4e~proc-filter'"
   "Don't clear the header buffer when viewing.")
 
 (defun mu4e-conversation--found-handler (_count)
+  (setq mu4e-conversation--last-query-timestamp (format-time-string "%Y-%m-%dT%H:%M:%S"))
   (advice-remove mu4e-header-func 'mu4e-conversation--header-handler)
   (advice-remove mu4e-erase-func 'mu4e-conversation--erase-handler)
   (advice-remove mu4e-found-func 'mu4e-conversation--found-handler)
@@ -1116,33 +1123,33 @@ Suitable to be run after the update handler."
     (mu4e-conversation--print thread))
   (mu4e-conversation--switch-to-buffer thread))
 
-(defvar mu4e-conversation--last-unread-query-date (format-time-string "%Y-%m-%dT%H:%M:%S"))
 (defun mu4e-conversation--sync-new-messages (list-of-messages)
   "Re-print view buffers with new messages"
   (dolist (msg (mu4e-conversation-thread-content list-of-messages))
-    (mu4e-conversation--query-thread 'mu4e-conversation--update msg))
-  (setq mu4e-conversation--last-unread-query-date
-        (format-time-string "%Y-%m-%dT%H:%M:%S")))
+    (mu4e-conversation--query-thread 'mu4e-conversation--update msg)))
 
-(defun mu4e-conversation--query-unread ()
+(defun mu4e-conversation--query-new ()
   "Query all unread messages.
 This is useful after an index update to include the new messages
 in existing view buffers. "
-  (setq mu4e-conversation--query-function 'mu4e-conversation--sync-new-messages)
-  (setq mu4e-conversation--last-thread (mu4e-conversation--make-thread))
-  (advice-add mu4e-header-func :override 'mu4e-conversation--header-handler)
-  (advice-add mu4e-erase-func :override 'mu4e-conversation--erase-handler)
-  (advice-add mu4e-found-func :override 'mu4e-conversation--found-handler)
-  (mu4e~proc-find
-   ;; `mu4e-query-rewrite-function' seems to be missing from mu<1.0.
-   (funcall (or mu4e-query-rewrite-function 'identity)
-            (format "flag:unread and date:%s..now" mu4e-conversation--last-unread-query-date))
-   (not 'show-threads)
-   :date
-   'ascending
-   (not 'limited)
-   'skip-duplicates
-   (not 'include-related)))
+  (when mu4e-conversation--last-query-timestamp
+    (setq mu4e-conversation--querying-p t)
+    (setq mu4e-conversation--query-function 'mu4e-conversation--sync-new-messages)
+    (setq mu4e-conversation--last-thread (mu4e-conversation--make-thread))
+    (advice-add mu4e-header-func :override 'mu4e-conversation--header-handler)
+    (advice-add mu4e-erase-func :override 'mu4e-conversation--erase-handler)
+    (advice-add mu4e-found-func :override 'mu4e-conversation--found-handler)
+    (mu4e~proc-find
+     ;; `mu4e-query-rewrite-function' seems to be missing from mu<1.0.
+     (funcall (or mu4e-query-rewrite-function 'identity)
+              ;; TODO: Don't use flag:unread or else it won't see newly sent messages.
+              (format "flag:unread and date:%s..now" mu4e-conversation--last-query-timestamp))
+     (not 'show-threads)
+     :date
+     'ascending
+     (not 'limited)
+     'skip-duplicates
+     (not 'include-related))))
 
 (define-minor-mode mu4e-conversation-mode
   "Replace `mu4e-view' with `mu4e-conversation'."
@@ -1154,7 +1161,7 @@ in existing view buffers. "
         (advice-add 'mu4e-view-save-attachment-multi :before 'mu4e-conversation-set-attachment)
         (advice-add 'mu4e-view-open-attachment :before 'mu4e-conversation-set-attachment)
         (advice-add mu4e-update-func :after 'mu4e-conversation--update-handler-extra)
-        (add-hook 'mu4e-index-updated-hook 'mu4e-conversation--query-unread)
+        (add-hook 'mu4e-index-updated-hook 'mu4e-conversation--query-new)
         ;; We must set the variable and not override its function because we
         ;; will need the override later.
         (setq mu4e-view-func 'mu4e-conversation))
@@ -1163,7 +1170,7 @@ in existing view buffers. "
     (advice-remove 'mu4e-view-open-attachment 'mu4e-conversation-set-attachment)
     (advice-remove 'mu4e~headers-redraw-get-view-window 'mu4e-conversation--headers-redraw-get-view-window)
     (advice-remove mu4e-update-func 'mu4e-conversation--update-handler-extra)
-    (remove-hook 'mu4e-index-updated-hook 'mu4e-conversation--query-unread)
+    (remove-hook 'mu4e-index-updated-hook 'mu4e-conversation--query-new)
     (setq mu4e-view-func 'mu4e~headers-view-handler)
     (setq kill-buffer-query-functions (delq 'mu4e-conversation-kill-buffer-query-function kill-buffer-query-functions))))
 
