@@ -110,8 +110,10 @@
   print-function
   buffer)
 
-(defvar mu4e-conversation--last-thread nil
-  "A global variable for passing the queried around the mu server.")
+(defvar mu4e-conversation--thread-queue nil
+  "A global variable for building threads after the mu server response.
+A queue is needed so that we can send several commands to the
+server in a row without corrupting the other threads.")
 
 (defvar mu4e-conversation--last-query-timestamp nil
   "Timestamp of the last query.
@@ -992,21 +994,21 @@ If MSG is specified, then send this message instead."
 
 (defun mu4e-conversation--view-handler (msg)
   "Handler function for displaying a message."
-  (push msg (mu4e-conversation-thread-content mu4e-conversation--last-thread))
-  (when (= (length (mu4e-conversation-thread-content mu4e-conversation--last-thread))
-           (length (mu4e-conversation-thread-headers mu4e-conversation--last-thread)))
+  (push msg (mu4e-conversation-thread-content (car  mu4e-conversation--thread-queue)))
+  (when (= (length (mu4e-conversation-thread-content (car mu4e-conversation--thread-queue)))
+           (length (mu4e-conversation-thread-headers (car mu4e-conversation--thread-queue))))
     (advice-remove mu4e-view-func 'mu4e-conversation--view-handler)
     ;; Headers are collected in reverse order, let's re-order them.
-    (setf (mu4e-conversation-thread-headers mu4e-conversation--last-thread)
-          (nreverse (mu4e-conversation-thread-headers mu4e-conversation--last-thread)))
+    (setf (mu4e-conversation-thread-headers (car mu4e-conversation--thread-queue))
+          (nreverse (mu4e-conversation-thread-headers (car mu4e-conversation--thread-queue))))
     ;; Last use of the globals.
-    (funcall mu4e-conversation--query-function mu4e-conversation--last-thread)))
+    (funcall mu4e-conversation--query-function (pop mu4e-conversation--thread-queue))))
 
 (defun mu4e-conversation--header-handler (msg &optional _point)
   "Store thread messages.
-The header handler is run for all messages before the found-handler.
+The header-handler is run for all messages before the found-handler.
 See `mu4e~proc-filter'"
-  (push msg (mu4e-conversation-thread-headers mu4e-conversation--last-thread)))
+  (push msg (mu4e-conversation-thread-headers (car mu4e-conversation--thread-queue))))
 
 (defun mu4e-conversation--erase-handler (&optional _msg)
   "Don't clear the header buffer when viewing.")
@@ -1017,7 +1019,7 @@ See `mu4e~proc-filter'"
   (advice-remove mu4e-erase-func 'mu4e-conversation--erase-handler)
   (advice-remove mu4e-found-func 'mu4e-conversation--found-handler)
   (advice-add mu4e-view-func :override 'mu4e-conversation--view-handler)
-  (dolist (msg (mu4e-conversation-thread-headers mu4e-conversation--last-thread))
+  (dolist (msg (mu4e-conversation-thread-headers (car mu4e-conversation--thread-queue)))
     (let ((docid (mu4e-message-field msg :docid))
           ;; decrypt (or not), based on `mu4e-decryption-policy'.
           (decrypt
@@ -1063,8 +1065,9 @@ When done, QUERY-FUNCTION is called over the resulting thread."
   (setq mu4e-conversation--query-function query-function)
   (setq msg (or msg (mu4e-message-at-point 'noerror)))
   (when msg
-    (setq mu4e-conversation--last-thread
-          (mu4e-conversation--make-thread msg))
+    (setq mu4e-conversation--thread-queue
+          (append mu4e-conversation--thread-queue
+                  (list (mu4e-conversation--make-thread msg))))
     (advice-add mu4e-header-func :override 'mu4e-conversation--header-handler)
     (advice-add mu4e-erase-func :override 'mu4e-conversation--erase-handler)
     (advice-add mu4e-found-func :override 'mu4e-conversation--found-handler)
@@ -1123,9 +1126,9 @@ Suitable to be run after the update handler."
     (mu4e-conversation--print thread))
   (mu4e-conversation--switch-to-buffer thread))
 
-(defun mu4e-conversation--sync-new-messages (list-of-messages)
+(defun mu4e-conversation--sync (new-messages)
   "Re-print view buffers with new messages"
-  (dolist (msg (mu4e-conversation-thread-content list-of-messages))
+  (dolist (msg (mu4e-conversation-thread-content new-messages))
     (mu4e-conversation--query-thread 'mu4e-conversation--update msg)))
 
 (defun mu4e-conversation--query-new ()
@@ -1133,9 +1136,10 @@ Suitable to be run after the update handler."
 This is useful after an index update to include the new messages
 in existing view buffers. "
   (when mu4e-conversation--last-query-timestamp
-    (setq mu4e-conversation--querying-p t)
-    (setq mu4e-conversation--query-function 'mu4e-conversation--sync-new-messages)
-    (setq mu4e-conversation--last-thread (mu4e-conversation--make-thread))
+    (setq mu4e-conversation--query-function 'mu4e-conversation--sync)
+    (setq mu4e-conversation--thread-queue
+          (append mu4e-conversation--thread-queue
+                  (list (mu4e-conversation--make-thread))))
     (advice-add mu4e-header-func :override 'mu4e-conversation--header-handler)
     (advice-add mu4e-erase-func :override 'mu4e-conversation--erase-handler)
     (advice-add mu4e-found-func :override 'mu4e-conversation--found-handler)
