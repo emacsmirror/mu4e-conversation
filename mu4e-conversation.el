@@ -59,7 +59,7 @@
 
 ;;; Code:
 
-;; TODO: Overrides are not commended.  Use unwind-protect to set handlers?  I don't think it would work.
+;; REVIEW: Overrides are not commended.  Use unwind-protect to set handlers?  I don't think it would work.
 ;; TODO: Only mark visible messages as read.
 ;; TODO: Detect subject changes.
 ;; TODO: Check out mu4e gnus view.
@@ -99,6 +99,8 @@
 (require 'subr-x)
 (require 'cl-lib)
 
+;; TODO: Merge headers and content into "messages".  Need ":thread" from headers.
+;; (plist-get (mu4e-message-field msg-header :thread) :level)
 (cl-defstruct (mu4e-conversation-thread
                (:copier nil)
                (:constructor mu4e-conversation--make-thread
@@ -110,11 +112,7 @@
   print-function
   buffer)
 
-(defvar mu4e-conversation--thread-queue nil
-  "A global variable for building threads after the mu server response.
-A queue is needed so that we can send several commands to the
-server in a row without corrupting the other threads.")
-
+;; TODO: Include this into the thread structure?
 (defvar mu4e-conversation--last-query-timestamp nil
   "Timestamp of the last query.
 This can be used to know which message is \"new\".")
@@ -130,10 +128,6 @@ across major mode change.")
   (setq buffer (or buffer (current-buffer)))
   (when mu4e-conversation--thread-buffer-hash
     (gethash buffer mu4e-conversation--thread-buffer-hash)))
-
-(defvar mu4e-conversation--query-function 'mu4e-conversation--show
-  "The function to execute after the thread has been queried.
-It takes one argument, the thread.")
 
 (defvar mu4e-conversation-print-function 'mu4e-conversation-print-linear
   "Function that insert the formatted content of a message in the current buffer.
@@ -166,6 +160,7 @@ For example, to disable appending signature at the end of a message:
    (lambda ()
      (set (make-local-variable 'mu4e-compose-signature-auto-include) nil)))
 "
+  ;; TODO: Test signature example.
   :type 'hook
   :group 'mu4e-conversation)
 
@@ -360,6 +355,7 @@ messages.  A negative COUNT goes backwards."
         (remhash (current-buffer) mu4e-conversation--thread-buffer-hash))
       t)))
 
+;; TODO: Add option to bury instead of quit.
 (defun mu4e-conversation-quit (&optional no-confirm)
   "Quit conversation window.
 If NO-CONFIRM is nil, ask for confirmation if message was not saved."
@@ -424,7 +420,7 @@ mu4e-conversation-buffer-name-format title) and create it if necessary.
    (t (seq-find #'mu4e-conversation--buffer-p
                 (buffer-list)))))
 
-;; TODO: Use this.
+;; TODO: Use a --title function.
 ;; (defun mu4e-conversation--title (thread)
 ;;   "Return THREAD title, that is, the subject of the first message."
 ;;   (mu4e-message-field
@@ -531,13 +527,16 @@ If PRINT-FUNCTION is nil, use `mu4e-conversation-print-function'."
   (let (line column current-message)
     (if (buffer-live-p (mu4e-conversation-thread-buffer thread))
         (setq line (mu4e-conversation--line-number (mu4e-conversation-thread-buffer thread))
-            column (with-current-buffer (mu4e-conversation-thread-buffer thread)
-                     (- (point) (line-beginning-position)))
-            current-message (mu4e-message-at-point 'noerror))
+              column (with-current-buffer (mu4e-conversation-thread-buffer thread)
+                       (- (point) (line-beginning-position)))
+              current-message (mu4e-message-at-point 'noerror))
       (setf (mu4e-conversation-thread-buffer thread)
-              (mu4e-conversation--get-buffer (mu4e-message-field
-                                              (car (mu4e-conversation-thread-headers thread))
-                                              :subject))))
+            (mu4e-conversation--get-buffer (mu4e-message-field
+                                            (car (mu4e-conversation-thread-headers thread))
+                                            :subject)))
+      (mu4e-message "Found %d matching message%s"
+                    (length (mu4e-conversation-thread-headers thread))
+                    (if (= 1 (length (mu4e-conversation-thread-headers thread))) "" "s")))
     (with-current-buffer (mu4e-conversation-thread-buffer thread)
       ;; Register buffer as a conversation buffer.
       ;; This is used by `mu4e-conversation--buffer-p'.
@@ -805,6 +804,7 @@ The list is in the following format:
     (goto-char body-start)
     (while (re-search-forward (rx line-start ">" (* blank)) nil t) (replace-match ": "))
     (goto-char body-start)
+    ;; TODO: Use `message-mark-insert-begin' and `message-mark-insert-end' instead.
     (while (re-search-forward (rx line-start "--8<---------------cut here---------------start------------->8---") nil t)
       (replace-match "#+begin_src"))
     (goto-char body-start)
@@ -918,6 +918,9 @@ This is a helper function for operations such as saving and sending."
                                (point))))
     (insert body)))
 
+;; TODO: Add hook so that we can choose to sync the "Sent mail" folder.
+;; (let ((mu4e-get-mail-command "mbsync ambrevar-sent"))
+;;   (mu4e-update-mail-and-index 'run-in-background))
 (defun mu4e-conversation-send (&optional msg)
   "Send message at the end of the view buffer.
 If MSG is specified, then send this message instead."
@@ -975,6 +978,7 @@ If MSG is specified, then send this message instead."
                          (mu4e-message-at-point 'noerror))))
     (save-window-excursion
       (mu4e-conversation--open-draft msg)
+      ;; TODO: Use transaction?
       (unless draft-message
         (advice-add mu4e-update-func :override 'mu4e-conversation--update-draft))
       (save-buffer)
@@ -991,43 +995,6 @@ If MSG is specified, then send this message instead."
 (defun mu4e-conversation--draft-reply-all-p (&optional _origmsg)
   "Override of `mu4e~draft-reply-all-p' to always reply to all."
   t)
-
-(defun mu4e-conversation--view-handler (msg)
-  "Handler function for displaying a message."
-  (push msg (mu4e-conversation-thread-content (car  mu4e-conversation--thread-queue)))
-  (when (= (length (mu4e-conversation-thread-content (car mu4e-conversation--thread-queue)))
-           (length (mu4e-conversation-thread-headers (car mu4e-conversation--thread-queue))))
-    (advice-remove mu4e-view-func 'mu4e-conversation--view-handler)
-    ;; Headers are collected in reverse order, let's re-order them.
-    (setf (mu4e-conversation-thread-headers (car mu4e-conversation--thread-queue))
-          (nreverse (mu4e-conversation-thread-headers (car mu4e-conversation--thread-queue))))
-    ;; Last use of the globals.
-    (funcall mu4e-conversation--query-function (pop mu4e-conversation--thread-queue))))
-
-(defun mu4e-conversation--header-handler (msg &optional _point)
-  "Store thread messages.
-The header-handler is run for all messages before the found-handler.
-See `mu4e~proc-filter'"
-  (push msg (mu4e-conversation-thread-headers (car mu4e-conversation--thread-queue))))
-
-(defun mu4e-conversation--erase-handler (&optional _msg)
-  "Don't clear the header buffer when viewing.")
-
-(defun mu4e-conversation--found-handler (_count)
-  (setq mu4e-conversation--last-query-timestamp (format-time-string "%Y-%m-%dT%H:%M:%S"))
-  (advice-remove mu4e-header-func 'mu4e-conversation--header-handler)
-  (advice-remove mu4e-erase-func 'mu4e-conversation--erase-handler)
-  (advice-remove mu4e-found-func 'mu4e-conversation--found-handler)
-  (advice-add mu4e-view-func :override 'mu4e-conversation--view-handler)
-  (dolist (msg (mu4e-conversation-thread-headers (car mu4e-conversation--thread-queue)))
-    (let ((docid (mu4e-message-field msg :docid))
-          ;; decrypt (or not), based on `mu4e-decryption-policy'.
-          (decrypt
-           (and (member 'encrypted (mu4e-message-field msg :flags))
-                (if (eq mu4e-decryption-policy 'ask)
-                    (yes-or-no-p (mu4e-format "Decrypt message?")) ; TODO: Never ask.
-                  mu4e-decryption-policy))))
-      (mu4e~proc-view docid mu4e-view-show-images decrypt))))
 
 (defun mu4e-conversation--find-buffer (msg)
   "Return the conversation buffer displaying MSG.
@@ -1053,34 +1020,10 @@ buffer, re-print it."
               ;; and the new thread?
               (car (mu4e-conversation-thread-content thread)))))
     (when (buffer-live-p buf)
-      ;; TODO: Make sure we handles renamed buffers.
+      ;; TODO: Make sure we handle renamed buffers.
       ;; (puthash buf thread mu4e-conversation--thread-buffer-hash)
       (setf (mu4e-conversation-thread-buffer thread) buf)
       (mu4e-conversation--print thread))))
-
-(defun mu4e-conversation--query-thread (query-function &optional msg)
-  "Make a thread containing MSG.
-If MSG is nil, use message at point.
-When done, QUERY-FUNCTION is called over the resulting thread."
-  (setq mu4e-conversation--query-function query-function)
-  (setq msg (or msg (mu4e-message-at-point 'noerror)))
-  (when msg
-    (setq mu4e-conversation--thread-queue
-          (append mu4e-conversation--thread-queue
-                  (list (mu4e-conversation--make-thread msg))))
-    (advice-add mu4e-header-func :override 'mu4e-conversation--header-handler)
-    (advice-add mu4e-erase-func :override 'mu4e-conversation--erase-handler)
-    (advice-add mu4e-found-func :override 'mu4e-conversation--found-handler)
-    (mu4e~proc-find
-     ;; `mu4e-query-rewrite-function' seems to be missing from mu<1.0.
-     (funcall (or mu4e-query-rewrite-function 'identity)
-              (format "msgid:%s" (mu4e-message-field msg :message-id)))
-     'show-threads
-     :date
-     'ascending
-     (not 'limited)
-     'skip-duplicates
-     'include-related)))
 
 ;; TODO: Make sure we handle message removal.
 (defun mu4e-conversation--update-handler-extra (msg &optional _is-move)
@@ -1129,53 +1072,279 @@ Suitable to be run after the update handler."
 (defun mu4e-conversation--sync (new-messages)
   "Re-print view buffers with new messages"
   (dolist (msg (mu4e-conversation-thread-content new-messages))
-    (mu4e-conversation--query-thread 'mu4e-conversation--update msg)))
+    ;; TODO: Pack messages together so that --query-thread is run only once per
+    ;; thread for performance reasons.
+    (mu4e-log 'misc "Sync %S" msg)
+    (mu4e-conversation--query-thread 'mu4e-conversation--update
+                                     (format "msgid:%s"
+                                             (mu4e-message-field msg :message-id))
+                                     msg
+                                     'show-thread
+                                     'include-related)))
+
+(defvar mu4e-conversation--transaction-queue nil)
+(defvar mu4e-conversation--transaction-marker "mu4e-conversation")
+(defun mu4e-conversation--transaction-marker-p (sexp)
+  "Return non-nil if sexp is a transaction marker.
+See `mu4e-conversation--proc-filter'."
+  (and (plist-get sexp :error)
+       ;; Message to parse: "expected: '<alphanum>+:' (mu4e-conversation)"
+       (string= (replace-regexp-in-string
+                 (rx (* any) "(" (group (+ (any alnum punct))) ")" string-end)
+                 "\\1"
+                 (plist-get sexp :message))
+                mu4e-conversation--transaction-marker)))
+
+(defun mu4e-conversation--enqueue (callback command &rest args)
+  "Enqueue transaction (COMMAND ARGS) and run CALLBACK on the response.
+CALLBACK must take a list of mu4e sexps.  See `mu4e~proc-filter'.
+COMMAND must be (possibly indirectly) calling `mu4e-proc-send-command'."
+  ;; We roll our own transaction queue system because Emacs' `tq' package has
+  ;; some flaws: it needs a regexp to identify the transactions in the output,
+  ;; which is rather unreliable and a possibly a performance killer.
+  (setq mu4e-conversation--transaction-queue
+        (nconc mu4e-conversation--transaction-queue (list callback)))
+  (mu4e-log 'to-server "New transaction (new total %s)"
+            (length mu4e-conversation--transaction-queue))
+  ;; Because "mu server" does not identify transactions itself, we use a hack:
+  ;; we wrap the transaction between calls to well-known erronerous commands
+  ;; that act as begin/end markers.  By parsing the error responses that
+  ;; references those markers, we know that all responses in-between correspond
+  ;; to the actual transaction.
+  (mu4e~proc-send-command mu4e-conversation--transaction-marker)
+  (apply command args)
+  (mu4e~proc-send-command mu4e-conversation--transaction-marker)
+  (mu4e-log 'to-server "Transaction sent"))
+
+(defvar mu4e-conversation--transaction-running nil)
+
+;; TODO: Don't override proc-filter function, set process filter to this instead?
+;; Then we could call the original proc-filter instead of the big copy-paste at the end?
+;; Maybe not, since we still need to catch the marker (an error) in the original proc-filter.
+(defun mu4e-conversation--proc-filter (_proc str)
+  "Like `mu4e~proc-filter' but if a transaction is running, run
+its associated function instead of the usual filter.  The
+function takes every s-exp as argument.
+
+See `mu4e-conversation--enqueue' to add a transaction."
+  (mu4e-log 'misc "* Received %d byte(s)" (length str))
+  (setq mu4e~proc-buf (concat mu4e~proc-buf str)) ;; update our buffer
+  (let ((sexp (mu4e~proc-eat-sexp-from-buf)))
+    (cond
+     ((and (mu4e-conversation--transaction-marker-p sexp)
+           mu4e-conversation--transaction-running)
+      (setq mu4e-conversation--transaction-running nil)
+      (mu4e-log 'from-server "Transaction end (old total %s)"
+                (length mu4e-conversation--transaction-queue))
+      (pop mu4e-conversation--transaction-queue)
+      (mu4e-conversation--proc-filter nil ""))
+     ((and (mu4e-conversation--transaction-marker-p sexp)
+           (not mu4e-conversation--transaction-running))
+      (setq mu4e-conversation--transaction-running t)
+      (mu4e-log 'from-server "Transaction start (total %s)"
+                (length mu4e-conversation--transaction-queue))
+      (mu4e-conversation--proc-filter nil ""))
+     (mu4e-conversation--transaction-running
+      (let ((sexp-list (list sexp)))
+        (while (and (setq sexp (mu4e~proc-eat-sexp-from-buf))
+                    (not (mu4e-conversation--transaction-marker-p sexp)))
+          (mu4e-log 'from-server "%S" sexp)
+          (setq sexp-list (nconc sexp-list (list sexp))))
+        (funcall (car mu4e-conversation--transaction-queue) sexp-list)
+        (when (mu4e-conversation--transaction-marker-p sexp)
+          (setq mu4e-conversation--transaction-running nil)
+          (mu4e-log 'from-server "Transaction end (old total %s)"
+                    (length mu4e-conversation--transaction-queue))
+          (pop mu4e-conversation--transaction-queue)
+          (mu4e-conversation--proc-filter nil ""))
+        ;; Don't call the proc filter
+        ;; recursively if buffer is empty, otherwise it will call itself to much
+        ;; before the next s-exp is made available.
+        ))
+     (t
+      ;; Rest of the function as in the original except that we recurse when we
+      ;; find a marker.
+      (let (marker)
+        (with-local-quit
+          (while (and sexp (not marker))
+            (mu4e-log 'from-server "%S" sexp)
+            (cond
+             ;; a header plist can be recognized by the existence of a :date field
+             ((plist-get sexp :date)
+              (funcall mu4e-header-func sexp))
+
+             ;; the found sexp, we receive after getting all the headers
+             ((plist-get sexp :found)
+              (funcall mu4e-found-func (plist-get sexp :found)))
+
+             ;; viewing a specific message
+             ((plist-get sexp :view)
+              (funcall mu4e-view-func (plist-get sexp :view)))
+
+             ;; receive an erase message
+             ((plist-get sexp :erase)
+              (funcall mu4e-erase-func))
+
+             ;; receive a :sent message
+             ((plist-get sexp :sent)
+              (funcall mu4e-sent-func
+                       (plist-get sexp :docid)
+                       (plist-get sexp :path)))
+
+             ;; received a pong message
+             ((plist-get sexp :pong)
+              (funcall mu4e-pong-func
+                       (plist-get sexp :props)))
+
+             ;; received a contacts message
+             ;; note: we use 'member', to match (:contacts nil)
+             ((plist-member sexp :contacts)
+              (funcall mu4e-contacts-func
+                       (plist-get sexp :contacts)))
+
+             ;; something got moved/flags changed
+             ((plist-get sexp :update)
+              (funcall mu4e-update-func
+                       (plist-get sexp :update) (plist-get sexp :move)))
+
+             ;; a message got removed
+             ((plist-get sexp :remove)
+              (funcall mu4e-remove-func (plist-get sexp :remove)))
+
+             ;; start composing a new message
+             ((plist-get sexp :compose)
+              (funcall mu4e-compose-func
+                       (plist-get sexp :compose)
+                       (plist-get sexp :original)
+                       (plist-get sexp :include)))
+
+             ;; do something with a temporary file
+             ((plist-get sexp :temp)
+              (funcall mu4e-temp-func
+                       (plist-get sexp :temp)  ;; name of the temp file
+                       (plist-get sexp :what)  ;; what to do with it
+                       ;; (pipe|emacs|open-with...)
+                       (plist-get sexp :docid) ;; docid of the message
+                       (plist-get sexp :param))) ;; parameter for the action
+
+             ;; get some info
+             ((plist-get sexp :info)
+              (funcall mu4e-info-func sexp))
+
+             ;; receive an error
+             ((plist-get sexp :error)
+              (if (mu4e-conversation--transaction-marker-p sexp)
+                  (setq marker t)
+                (funcall mu4e-error-func
+                         (plist-get sexp :error)
+                         (plist-get sexp :message))))
+
+             (t (mu4e-message "Unexpected data from server [%S]" sexp)))
+
+            (setq sexp (mu4e~proc-eat-sexp-from-buf)))
+          (when marker
+            (setq mu4e-conversation--transaction-running t)
+            (mu4e-log 'from-server "Transaction start (total %s)"
+                      (length mu4e-conversation--transaction-queue))
+            (mu4e-conversation--proc-filter nil ""))))))))
+
+(defun mu4e-conversation--query-thread (query-function query &optional message show-thread include-related)
+  (setq message (or message (mu4e-message-at-point 'noerror)))
+  (let ((count 0)
+        collect-headers
+        collect-bodies
+        headers
+        bodies
+        collect-headers-done
+        collect-bodies-done)
+    ;; We need closures to share headers and bodies across callbacks.
+    ;; A callback can be called multiple times.
+    (setq collect-bodies
+          (lambda (sexp-list)
+            (while sexp-list
+              (when (plist-get (car sexp-list) :view)
+                (setq bodies (nconc bodies (list (plist-get (car sexp-list) :view)))))
+              (setq sexp-list (cdr sexp-list)))
+            (mu4e-log 'from-server "Total headers %s, bodies %s" (length headers) (length bodies))
+            (when (and (not collect-bodies-done) (= (length headers) (length bodies)))
+              ;; If more sexps come after headers are complete, this could be
+              ;; run several times.  Thus the guard.
+              (setq collect-bodies-done t)
+              (let ((thread (mu4e-conversation--make-thread message)))
+                (setf (mu4e-conversation-thread-content thread) bodies)
+                (setf (mu4e-conversation-thread-headers thread) headers)
+                (funcall query-function thread)))))
+    (setq collect-headers
+          (lambda (sexp-list)
+            (dolist (sexp sexp-list)
+              (cond
+               ((plist-get sexp :date)
+                (setq headers (nconc headers (list sexp))))
+               ((plist-get sexp :found)
+                (setq count (+ count (plist-get sexp :found))))))
+            (setq mu4e-conversation--last-query-timestamp (format-time-string "%Y-%m-%dT%H:%M:%S"))
+            (mu4e-log 'from-server "Total headers %s%s"
+                      (length headers)
+                      (if (/= count 0) (format ", count %s" count) ""))
+            (when (and (not collect-headers-done) (> count 0) (= (length headers) count))
+              (setq collect-headers-done t)
+              (dolist (msg headers)
+                (let ((docid (mu4e-message-field msg :docid))
+                      ;; decrypt (or not), based on `mu4e-decryption-policy'.
+                      (decrypt
+                       (and (member 'encrypted (mu4e-message-field msg :flags))
+                            (if (eq mu4e-decryption-policy 'ask)
+                                (yes-or-no-p (mu4e-format "Decrypt message?")) ; TODO: Never ask.
+                              mu4e-decryption-policy))))
+                  (mu4e-conversation--enqueue
+                   collect-bodies
+                   'mu4e~proc-view docid mu4e-view-show-images decrypt))))))
+    (mu4e-conversation--enqueue
+     collect-headers
+     'mu4e~proc-find
+     ;; `mu4e-query-rewrite-function' seems to be missing from mu<1.0.
+     (funcall (or mu4e-query-rewrite-function 'identity)
+              query)
+     show-thread
+     :date
+     'ascending
+     (not 'limited)
+     'skip-duplicates
+     include-related)))
 
 (defun mu4e-conversation--query-new ()
   "Query all unread messages.
 This is useful after an index update to include the new messages
 in existing view buffers. "
   (when mu4e-conversation--last-query-timestamp
-    (setq mu4e-conversation--query-function 'mu4e-conversation--sync)
-    (setq mu4e-conversation--thread-queue
-          (append mu4e-conversation--thread-queue
-                  (list (mu4e-conversation--make-thread))))
-    (advice-add mu4e-header-func :override 'mu4e-conversation--header-handler)
-    (advice-add mu4e-erase-func :override 'mu4e-conversation--erase-handler)
-    (advice-add mu4e-found-func :override 'mu4e-conversation--found-handler)
-    (mu4e~proc-find
-     ;; `mu4e-query-rewrite-function' seems to be missing from mu<1.0.
-     (funcall (or mu4e-query-rewrite-function 'identity)
-              ;; TODO: Don't use flag:unread or else it won't see newly sent messages.
-              (format "flag:unread and date:%s..now" mu4e-conversation--last-query-timestamp))
-     (not 'show-threads)
-     :date
-     'ascending
-     (not 'limited)
-     'skip-duplicates
-     (not 'include-related))))
+    (mu4e-log 'to-server "Querying new messages since %s" mu4e-conversation--last-query-timestamp)
+    (mu4e-conversation--query-thread
+     'mu4e-conversation--sync
+     ;; Don't use flag:unread or else it won't see newly sent messages.
+     (format "date:%s..now" mu4e-conversation--last-query-timestamp))))
 
 (define-minor-mode mu4e-conversation-mode
   "Replace `mu4e-view' with `mu4e-conversation'."
   :init-value nil
   (if mu4e-conversation-mode
       (progn
+        ;; TODO: Finish & test window management.
         (advice-add 'mu4e-get-view-buffer :override 'mu4e-conversation--get-buffer)
         (advice-add 'mu4e~headers-redraw-get-view-window :override 'mu4e-conversation--headers-redraw-get-view-window)
+        (advice-add 'mu4e~proc-filter :override 'mu4e-conversation--proc-filter)
         (advice-add 'mu4e-view-save-attachment-multi :before 'mu4e-conversation-set-attachment)
         (advice-add 'mu4e-view-open-attachment :before 'mu4e-conversation-set-attachment)
         (advice-add mu4e-update-func :after 'mu4e-conversation--update-handler-extra)
         (add-hook 'mu4e-index-updated-hook 'mu4e-conversation--query-new)
-        ;; We must set the variable and not override its function because we
-        ;; will need the override later.
-        (setq mu4e-view-func 'mu4e-conversation))
+        (advice-add mu4e-view-func :override 'mu4e-conversation))
     (advice-remove 'mu4e-get-view-buffer 'mu4e-conversation--get-buffer)
+    (advice-remove 'mu4e~headers-redraw-get-view-window 'mu4e-conversation--headers-redraw-get-view-window)
+    (advice-remove 'mu4e~proc-filter 'mu4e-conversation--proc-filter)
     (advice-remove 'mu4e-view-save-attachment-multi 'mu4e-conversation-set-attachment)
     (advice-remove 'mu4e-view-open-attachment 'mu4e-conversation-set-attachment)
-    (advice-remove 'mu4e~headers-redraw-get-view-window 'mu4e-conversation--headers-redraw-get-view-window)
     (advice-remove mu4e-update-func 'mu4e-conversation--update-handler-extra)
     (remove-hook 'mu4e-index-updated-hook 'mu4e-conversation--query-new)
-    (setq mu4e-view-func 'mu4e~headers-view-handler)
+    (advice-remove mu4e-view-func 'mu4e-conversation)
     (setq kill-buffer-query-functions (delq 'mu4e-conversation-kill-buffer-query-function kill-buffer-query-functions))))
 
 (defun mu4e-conversation--turn-on ()
@@ -1195,7 +1364,12 @@ in existing view buffers. "
                      (gethash (mu4e-conversation--find-buffer msg)
                               mu4e-conversation--thread-buffer-hash))))
     (if (not thread)
-        (mu4e-conversation--query-thread 'mu4e-conversation--show msg)
+        (mu4e-conversation--query-thread 'mu4e-conversation--show
+                                         (format "msgid:%s"
+                                                 (mu4e-message-field msg :message-id))
+                                         msg
+                                         'show-thread
+                                         'include-related)
       (setf (mu4e-conversation-thread-current-docid thread) (mu4e-message-field msg :docid))
       (mu4e-conversation--switch-to-buffer thread))))
 
