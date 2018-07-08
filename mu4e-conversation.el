@@ -164,6 +164,20 @@ For example, to disable appending signature at the end of a message:
   :type 'hook
   :group 'mu4e-conversation)
 
+(defcustom mu4e-conversation-after-send-hook nil
+  "A hook run after sending messages, if sucessful.
+For example, if you use a remote SMTP server you might want to
+immediately sync the \"sent mail\" folder so that it appears in
+the conversation buffer.
+
+  (add-hook
+   'mu4e-conversation-after-send-hook
+   (lambda ()
+    (let ((mu4e-get-mail-command \"mbsync sent-mail-channel\"))
+    (mu4e-update-mail-and-index 'run-in-background))))"
+  :type 'hook
+  :group 'mu4e-conversation)
+
 (defcustom mu4e-conversation-use-citation-line nil
   "If non-nil, precede each citation with a line as per
 `mu4e-conversation-citation-line-function'."
@@ -918,9 +932,6 @@ This is a helper function for operations such as saving and sending."
                                (point))))
     (insert body)))
 
-;; TODO: Add hook so that we can choose to sync the "Sent mail" folder.
-;; (let ((mu4e-get-mail-command "mbsync ambrevar-sent"))
-;;   (mu4e-update-mail-and-index 'run-in-background))
 (defun mu4e-conversation-send (&optional msg)
   "Send message at the end of the view buffer.
 If MSG is specified, then send this message instead."
@@ -949,7 +960,8 @@ If MSG is specified, then send this message instead."
                    'face 'mu4e-conversation-header
                    'rear-nonsticky t
                    'local-map mu4e-conversation-compose-map))
-      (set-buffer-modified-p nil))))
+      (set-buffer-modified-p nil)
+      (run-hooks 'mu4e-conversation-after-send-hook))))
 
 ;; TODO: Can we do better than a global?  We could use `mu4e-get-view-buffer'
 ;; but that would only work if the buffer has not been renamed.  With
@@ -1071,6 +1083,7 @@ Suitable to be run after the update handler."
 
 ;; TODO: Recenter sync'ed window where it was.  Or recenter it on the first new
 ;; message?
+;; TODO: Preserve view function on sync.
 (defun mu4e-conversation--sync (new-messages)
   "Re-print view buffers with new messages"
   (dolist (msg (mu4e-conversation-thread-content new-messages))
