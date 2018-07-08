@@ -151,12 +151,12 @@ If nil, the name value is not substituted."
   :type 'string
   :group 'mu4e-conversation)
 
-(defcustom mu4e-conversation-send-hook nil
+(defcustom mu4e-conversation-before-send-hook nil
   "A hook run before sending messages.
 For example, to disable appending signature at the end of a message:
 
   (add-hook
-   'mu4e-conversation-send-hook
+   'mu4e-conversation-before-send-hook
    (lambda ()
      (set (make-local-variable 'mu4e-compose-signature-auto-include) nil)))
 "
@@ -928,7 +928,7 @@ If MSG is specified, then send this message instead."
   (unless (mu4e-conversation--buffer-p)
     (mu4e-warn "Not a conversation buffer"))
   (let (draft-buf)
-    (run-hooks 'mu4e-conversation-send-hook)
+    (run-hooks 'mu4e-conversation-before-send-hook)
     (save-window-excursion
       (mu4e-conversation--open-draft msg)
       (condition-case nil
@@ -1069,6 +1069,8 @@ Suitable to be run after the update handler."
     (mu4e-conversation--print thread))
   (mu4e-conversation--switch-to-buffer thread))
 
+;; TODO: Recenter sync'ed window where it was.  Or recenter it on the first new
+;; message?
 (defun mu4e-conversation--sync (new-messages)
   "Re-print view buffers with new messages"
   (dolist (msg (mu4e-conversation-thread-content new-messages))
