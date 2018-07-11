@@ -1372,7 +1372,7 @@ in existing view buffers. "
 ;;;###autoload
 (defun mu4e-conversation (&optional msg)
   (interactive)
-  (unless mu4e-conversation-mode
+  (unless (or mu4e-conversation-mode global-mu4e-conversation-mode)
     (mu4e-warn "mu4e-conversation-mode must be enabled"))
   (setq msg (or msg (mu4e-message-at-point)))
   (unless msg
