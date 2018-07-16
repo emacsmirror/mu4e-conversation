@@ -168,6 +168,8 @@ For example, if you use a remote SMTP server you might want to
 immediately sync the \"sent mail\" folder so that it appears in
 the conversation buffer.
 
+Say you are using mbync configured with a \"sent-mail-channel\":
+
   (add-hook
    'mu4e-conversation-after-send-hook
    (lambda ()
@@ -1048,7 +1050,7 @@ Return nil if there is none."
   "If old version of the same thread is already known with a live
 buffer, re-print it."
   (let ((buf (mu4e-conversation--find-buffer
-              ;; TODO: Is the `car' guaranteed to be in common between the old
+              ;; TODO: Is the `car' guaranteed to be the same in the old
               ;; and the new thread?
               (car (mu4e-conversation-thread-content thread)))))
     (when (buffer-live-p buf)
