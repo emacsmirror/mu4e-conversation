@@ -82,14 +82,6 @@
 ;; TODO: Fine-tune the recipient list display and composition in linear view.
 ;; In tree view, we could read properties from the composition subtree.
 
-;; TODO: Evil mode: Preserve normal-state bindings when returning from composition.
-;; TODO: `org-open-line'(?) and `evil-open-below' remove the local-map from the
-;; text properties.  Solution would be as for the above Evil issue: define
-;; "special-<kbd>" bindings such when read-only, act special, otherwise act
-;; normal.
-;; `org~mu4e-mime-switch-headers-or-body' is used for
-;; `org-mu4e-compose-org-mode' to switch between major modes.
-
 (require 'mu4e)
 (require 'rx)
 (require 'outline)
@@ -263,47 +255,22 @@ If less than 0, don't limit the number of colors."
 
 (defvar mu4e-conversation-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "V") 'mu4e-conversation-toggle-view)
-    (define-key map (kbd "#") 'mu4e-conversation-toggle-hide-cited)
+    (define-key map (kbd "C-c C-c") 'mu4e-conversation-send)
+    (define-key map (kbd "C-x C-s") 'mu4e-conversation-save)
+    (define-key map (kbd "C-c C-p") 'mu4e-conversation-previous-message)
+    (define-key map (kbd "C-c C-n") 'mu4e-conversation-next-message)
     map)
   "Map for `mu4e-conversation'.")
 
-(defvar mu4e-conversation-compose-map
-  (let ((map (make-sparse-keymap)))
-    (set-keymap-parent map global-map)
-    (define-key map (kbd "C-c C-c") 'mu4e-conversation-send)
-    (define-key map (kbd "C-x C-s") 'mu4e-conversation-save)
-    (define-key map (kbd "C-c C-p") 'mu4e-conversation-previous-message)
-    (define-key map (kbd "C-c C-n") 'mu4e-conversation-next-message)
-    map)
-  "Map for `mu4e-conversation' in compose area.")
-
-(defvar mu4e-conversation-linear-map
+(defvar mu4e-conversation-thread-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "<return>") 'mu4e-conversation-cite)
-    (define-key map (kbd "C-c C-c") 'mu4e-conversation-send)
-    (define-key map (kbd "C-x C-s") 'mu4e-conversation-save)
-    (define-key map (kbd "C-c C-p") 'mu4e-conversation-previous-message)
-    (define-key map (kbd "C-c C-n") 'mu4e-conversation-next-message)
     (define-key map (kbd "M-q") 'mu4e-conversation-fill-long-lines)
+    (define-key map (kbd "V") 'mu4e-conversation-toggle-view)
+    (define-key map (kbd "#") 'mu4e-conversation-toggle-hide-cited)
     (define-key map (kbd "q") 'mu4e-conversation-quit)
     map)
-  "Map for `mu4e-conversation' in linear view.")
-
-(defvar mu4e-conversation-tree-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "q") 'mu4e-conversation-quit)
-    (define-key map (kbd "C") 'mu4e-compose-new)
-    (define-key map (kbd "R") 'mu4e-compose-reply)
-    (define-key map (kbd "E") 'mu4e-compose-edit)
-    (define-key map (kbd "F") 'mu4e-compose-forward)
-    (define-key map (kbd ".") 'mu4e-view-raw-message)
-    (define-key map (kbd "A") 'mu4e-view-attachment-action)
-    (define-key map (kbd "a") 'mu4e-view-action)
-    (define-key map (kbd "|") 'mu4e-view-pipe)
-    (define-key map (kbd "M-q") 'mu4e-conversation-fill-long-lines)
-    map)
-  "Map for `mu4e-conversation' in tree view.")
+  "Map for `mu4e-conversation' when over the read-only messages.")
 
 (defun mu4e-conversation-fill-long-lines ()
   "Same as `mu4e-view-fill-long-lines' but does not change the modified state."
@@ -607,17 +574,24 @@ If PRINT-FUNCTION is nil, use `mu4e-conversation-print-function'."
             (insert (propertize "\n" 'msg msg)) ; Insert a final newline after potential images.
             (goto-char (point-max)))
           (setq index (1+ index)))
-        (add-text-properties (point-min) (point-max) '(read-only t))
         (insert (propertize (format "%sCompose new message:" (if (eq major-mode 'org-mode) "* NEW " ""))
                             'face 'mu4e-conversation-header 'read-only t)
                 (propertize "\n"
                             'face 'mu4e-conversation-header
-                            'rear-nonsticky t
-                            'local-map mu4e-conversation-compose-map)
-                (if draft-messages ""
-                  (propertize
+                            'rear-nonsticky t))
+        (add-text-properties (point-min) (point-max)
+                             `(
+                               read-only t
+                               local-map ,(if (eq major-mode 'org-mode)
+                                              (make-composed-keymap
+                                               (list mu4e-conversation-thread-map mu4e-conversation-map mu4e-view-mode-map)
+                                               org-mode-map)
+                                            (make-composed-keymap
+                                             (list mu4e-conversation-thread-map mu4e-conversation-map)
+                                             mu4e-view-mode-map))))
+        (if draft-messages ""
+          (insert (propertize
                    "\n"
-                   'local-map mu4e-conversation-compose-map
                    'front-sticky t)))
         (cond
          (draft-text
@@ -637,7 +611,6 @@ If PRINT-FUNCTION is nil, use `mu4e-conversation-print-function'."
           (if (= (length draft-messages) 1)
               (insert (propertize (mu4e-conversation--body-without-signature (car draft-messages))
                                   'msg (car draft-messages)
-                                  'local-map mu4e-conversation-compose-map
                                   'front-sticky t))
             (warn "Multiple drafts found.  You must clean up the drafts manually.")
             (let ((count 1))
@@ -645,7 +618,6 @@ If PRINT-FUNCTION is nil, use `mu4e-conversation-print-function'."
                 (insert (propertize (concat (format "--Draft #%s--\n" count)
                                             (mu4e-conversation--body-without-signature draft))
                                     'msg (car draft-messages) ; Use first draft file.
-                                    'local-map mu4e-conversation-compose-map
                                     'front-sticky t))
                 (setq count (1+ count)))))))
         (unless (eq major-mode 'org-mode)
@@ -747,8 +719,7 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
   (unless (eq major-mode 'mu4e-view-mode)
     (mu4e-view-mode)
     (read-only-mode 0)
-    (use-local-map (make-composed-keymap (list mu4e-conversation-linear-map mu4e-conversation-map)
-                                         mu4e-view-mode-map)))
+    (use-local-map (make-composed-keymap mu4e-conversation-map mu4e-compose-mode-map)))
   (let* ((msg (nth index thread-content))
          (from (car (mu4e-message-field msg :from)))
          (from-me-p (member (cdr from) mu4e-user-mail-address-list))
@@ -796,7 +767,7 @@ The list is in the following format:
     (insert "#+SEQ_TODO: UNREAD READ NEW\n\n")
     (org-mode)
     (erase-buffer) ; TODO: Is it possible to set `org-todo-keywords' locally without this workaround?
-    (use-local-map (make-composed-keymap (list mu4e-conversation-tree-map mu4e-conversation-map)
+    (use-local-map (make-composed-keymap mu4e-conversation-map
                                          org-mode-map)))
   (let* ((msg (nth index thread-content))
          (msg-header (nth index thread-headers))
@@ -872,18 +843,15 @@ mu4e message as argument."
         (goto-char (point-max))
         (backward-char)
         (insert
-         (propertize
-          (concat
-           "\n\n"
-           (if (and mu4e-conversation-use-citation-line msg)
-               (funcall mu4e-conversation-citation-line-function msg)
-             "")
-           "> "
-          ;; TODO: Re-cite first line properly.
-           (replace-regexp-in-string
-            "\n" "\n> "
-            text))
-          'local-map mu4e-conversation-compose-map))))))
+         "\n\n"
+         (if (and mu4e-conversation-use-citation-line msg)
+             (funcall mu4e-conversation-citation-line-function msg)
+           "")
+         "> "
+         ;; TODO: Re-cite first line properly.
+         (replace-regexp-in-string
+          "\n" "\n> "
+          text))))))
 
 (defun mu4e-conversation--open-draft (&optional msg)
   "Open conversation composed message as a mu4e draft buffer.
@@ -980,8 +948,7 @@ call of this function."
       (insert
        (propertize "\n"
                    'face 'mu4e-conversation-header
-                   'rear-nonsticky t
-                   'local-map mu4e-conversation-compose-map))
+                   'rear-nonsticky t))
       (set-buffer-modified-p nil)
       (run-hooks 'mu4e-conversation-after-send-hook))))
 
