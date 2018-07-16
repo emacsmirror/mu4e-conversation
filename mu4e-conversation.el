@@ -432,11 +432,10 @@ mu4e-conversation-buffer-name-format title) and create it if necessary.
    (t (seq-find #'mu4e-conversation--buffer-p
                 (buffer-list)))))
 
-;; TODO: Use a --title function.
-;; (defun mu4e-conversation--title (thread)
-;;   "Return THREAD title, that is, the subject of the first message."
-;;   (mu4e-message-field
-;;    (car (mu4e-conversation-thread-headers thread)) :subject))
+(defun mu4e-conversation--title (thread)
+  "Return THREAD title, that is, the subject of the first message."
+  (mu4e-message-field
+   (car (mu4e-conversation-thread-headers thread)) :subject))
 
 (defun mu4e-conversation--headers-redraw-get-view-window ()
   "Like `mu4e~headers-redraw-get-view-window' but preserve conversation buffers."
@@ -543,9 +542,7 @@ If PRINT-FUNCTION is nil, use `mu4e-conversation-print-function'."
                        (- (point) (line-beginning-position)))
               current-message (mu4e-message-at-point 'noerror))
       (setf (mu4e-conversation-thread-buffer thread)
-            (mu4e-conversation--get-buffer (mu4e-message-field
-                                            (car (mu4e-conversation-thread-headers thread))
-                                            :subject)))
+            (mu4e-conversation--get-buffer (mu4e-conversation--title thread)))
       (mu4e-message "Found %d matching message%s"
                     (length (mu4e-conversation-thread-headers thread))
                     (if (= 1 (length (mu4e-conversation-thread-headers thread))) "" "s")))
@@ -644,7 +641,7 @@ If PRINT-FUNCTION is nil, use `mu4e-conversation-print-function'."
         (unless (eq major-mode 'org-mode)
           (mu4e~view-make-urls-clickable)) ; TODO: Don't discard sender face.
         (setq header-line-format (propertize
-                                  (mu4e-message-field (car thread-content-sorted) :subject)
+                                  (mu4e-conversation--title thread)
                                   'face 'bold))
         (add-to-invisibility-spec '(mu4e-conversation-quote . t))
         (set-buffer-modified-p buffer-modified)
