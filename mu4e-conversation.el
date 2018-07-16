@@ -176,6 +176,14 @@ the conversation buffer.
   :type 'hook
   :group 'mu4e-conversation)
 
+(defcustom mu4e-conversation-hook nil
+  "A hook run after displaying a conversation.
+For example, use it to enable spell-checking:
+
+  (add-hook 'mu4e-conversation-hook 'flyspell-mode)"
+  :type 'hook
+  :group 'mu4e-conversation)
+
 (defcustom mu4e-conversation-use-citation-line nil
   "If non-nil, precede each citation with a line as per
 `mu4e-conversation-citation-line-function'."
@@ -652,7 +660,8 @@ If PRINT-FUNCTION is nil, use `mu4e-conversation-print-function'."
         (when line
           ;; Restore point.
           (mu4e-conversation--goto-line current-message line)
-          (move-to-column column))))))
+          (move-to-column column))
+        (run-hooks 'mu4e-conversation-hook)))))
 
 (defun mu4e-conversation--get-message-face (index thread)
   "Map 'from' addresses to 'sender-N' faces in chronological
