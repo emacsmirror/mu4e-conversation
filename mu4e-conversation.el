@@ -822,7 +822,7 @@ The list is in the following format:
     (goto-char body-start)
     (while (re-search-forward (rx line-start "*") nil t) (replace-match " *"))
     (goto-char body-start)
-    (while (re-search-forward (rx line-start ">" (* blank)) nil t) (replace-match ": "))
+    (while (re-search-forward (rx line-start ">" (? blank)) nil t) (replace-match ": "))
     (goto-char body-start)
     (while (re-search-forward (concat "^" message-mark-insert-begin) nil t)
       (replace-match "#+begin_src
