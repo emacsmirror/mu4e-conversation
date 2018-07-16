@@ -816,12 +816,13 @@ The list is in the following format:
     (goto-char body-start)
     (while (re-search-forward (rx line-start ">" (* blank)) nil t) (replace-match ": "))
     (goto-char body-start)
-    ;; TODO: Use `message-mark-insert-begin' and `message-mark-insert-end' instead.
-    (while (re-search-forward (rx line-start "--8<---------------cut here---------------start------------->8---") nil t)
-      (replace-match "#+begin_src"))
+    (while (re-search-forward (concat "^" message-mark-insert-begin) nil t)
+      (replace-match "#+begin_src
+"))
     (goto-char body-start)
-    (while (re-search-forward (rx line-start "--8<---------------cut here---------------end--------------->8---") nil t)
-      (replace-match "#+end_src"))
+    (while (re-search-forward (concat "^" message-mark-insert-end) nil t)
+      (replace-match "#+end_src
+"))
     (goto-char (point-max))
     (org-set-property "To" (mu4e-conversation--format-address-list
                             (mu4e-message-field msg :to)))
