@@ -156,7 +156,7 @@ For example, to disable appending signature at the end of a message:
   (add-hook
    'mu4e-conversation-before-send-hook
    (lambda ()
-     (set (make-local-variable 'mu4e-compose-signature-auto-include) nil)))
+     (setq mu4e-compose-signature-auto-include nil)))
 "
   ;; TODO: Test signature example.
   :type 'hook
@@ -930,11 +930,26 @@ This is a helper function for operations such as saving and sending."
 
 (defun mu4e-conversation-send (&optional msg)
   "Send message at the end of the view buffer.
-If MSG is specified, then send this message instead."
+If MSG is specified, then send this message instead.
+
+Most `mu4e-compose-…' variables are lexically bound during the
+call of this function."
   (interactive)
   (unless (mu4e-conversation--buffer-p)
     (mu4e-warn "(send) Not a conversation buffer"))
-  (let (draft-buf)
+  (let (draft-buf
+        (mu4e-compose-signature mu4e-compose-signature)
+        (mu4e-compose-keep-self-cc mu4e-compose-keep-self-cc)
+        (mu4e-compose-format-flowed mu4e-compose-format-flowed)
+        (mu4e-compose-cite-function mu4e-compose-cite-function)
+        (mu4e-compose-reply-to-address mu4e-compose-reply-to-address)
+        (mu4e-compose-auto-include-date mu4e-compose-auto-include-date)
+        (mu4e-compose-dont-reply-to-self mu4e-compose-dont-reply-to-self)
+        (mu4e-compose-reply-ignore-address mu4e-compose-reply-ignore-address)
+        (mu4e-compose-forward-as-attachment mu4e-compose-forward-as-attachment)
+        (mu4e-compose-signature-auto-include mu4e-compose-signature-auto-include)
+        (mu4e-compose-crypto-reply-plain-policy mu4e-compose-crypto-reply-plain-policy)
+        (mu4e-compose-crypto-reply-encrypted-policy mu4e-compose-crypto-reply-encrypted-policy))
     (run-hooks 'mu4e-conversation-before-send-hook)
     (save-window-excursion
       (mu4e-conversation--open-draft msg)
