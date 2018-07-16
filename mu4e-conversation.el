@@ -299,7 +299,7 @@ If less than 0, don't limit the number of colors."
   "Same as `mu4e-view-fill-long-lines' but does not change the modified state."
   (interactive)
   (unless (mu4e-conversation--buffer-p)
-    (mu4e-warn "Not a conversation buffer"))
+    (mu4e-warn "(fill-long-lines) Not a conversation buffer"))
   (let ((modified-p (buffer-modified-p))
         (mu4e~view-buffer-name (buffer-name)))
     (set-buffer-modified-p nil)         ; Don't warn if modified.
@@ -312,7 +312,7 @@ functions (e.g. `mu4e-view-save-attachment-multi') so that it
 works for message at point.  Suitable as a :before advice."
   (interactive)
   (unless (mu4e-conversation--buffer-p)
-    (mu4e-warn "Not a conversation buffer"))
+    (mu4e-warn "(set-attachment) Not a conversation buffer"))
   (setq msg (or msg (mu4e-message-at-point)))
   (mu4e~view-construct-attachments-header msg))
 
@@ -329,7 +329,7 @@ With numeric prefix argument or if COUNT is given, move that many
 messages.  A negative COUNT goes backwards."
   (interactive "p")
   (unless (mu4e-conversation--buffer-p)
-    (mu4e-warn "Not a conversation buffer"))
+    (mu4e-warn "(next-message) Not a conversation buffer"))
   (setq count (or count 1))
   (if (eq major-mode 'org-mode)
       (org-next-visible-heading count)
@@ -375,7 +375,7 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
   ;; allows us to keep focus on the view buffer when we confirm not to quit.
   (interactive)
   (unless (mu4e-conversation--buffer-p)
-    (mu4e-warn "Not a conversation buffer"))
+    (mu4e-warn "(quit) Not a conversation buffer"))
   (when (or no-confirm
             (not (buffer-modified-p))
             (yes-or-no-p "Reply message has been modified.  Kill anyway? "))
@@ -395,7 +395,7 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
   "Switch between tree and linear view."
   (interactive)
   (unless (mu4e-conversation--buffer-p)
-    (mu4e-warn "Not a conversation buffer"))
+    (mu4e-warn "(toggle-view) Not a conversation buffer"))
   (when (and buffer-undo-list
              (not (yes-or-no-p "Undo list will be reset after switching view.  Continue? ")))
     (mu4e-warn "Keeping undo list"))
@@ -852,7 +852,7 @@ mu4e message as argument."
 (defun mu4e-conversation-cite (start end &optional toggle-citation-line)
   (interactive "r\nP")
   (unless (mu4e-conversation--buffer-p)
-    (mu4e-warn "Not a conversation buffer"))
+    (mu4e-warn "(cite) Not a conversation buffer"))
   (if (not (use-region-p))
       (mu4e-scroll-up)                  ; TODO: Call function associate to `this-command-key' in mu4e-view-mode / org-mode.
     (let ((text (buffer-substring-no-properties start end))
@@ -881,7 +881,7 @@ mu4e message as argument."
   "Open conversation composed message as a mu4e draft buffer.
 This is a helper function for operations such as saving and sending."
   (unless (mu4e-conversation--buffer-p)
-    (mu4e-warn "Not a conversation buffer"))
+    (mu4e-warn "(open-draft) Not a conversation buffer"))
   (let ((mu4e-compose-in-new-frame nil)
         (body (save-excursion
                 (goto-char (point-max))
@@ -936,7 +936,7 @@ This is a helper function for operations such as saving and sending."
 If MSG is specified, then send this message instead."
   (interactive)
   (unless (mu4e-conversation--buffer-p)
-    (mu4e-warn "Not a conversation buffer"))
+    (mu4e-warn "(send) Not a conversation buffer"))
   (let (draft-buf)
     (run-hooks 'mu4e-conversation-before-send-hook)
     (save-window-excursion
@@ -974,7 +974,7 @@ If MSG is specified, then send this message instead."
   "Save conversation draft."
   (interactive)
   (unless (mu4e-conversation--buffer-p)
-    (mu4e-warn "Not a conversation buffer"))
+    (mu4e-warn "(save) Not a conversation buffer"))
   (unless (buffer-modified-p)
     (mu4e-warn "(No changes need to be saved)"))
   (let ((composition-start (save-excursion
