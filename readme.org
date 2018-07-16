@@ -6,6 +6,9 @@ face.  Threads can be displayed linearly (in which case e-mails are displayed
 in chronological order) or as an Org document where the node tree maps the
 thread tree.
 
+*Warning:* Still in early development, there might be some rough edges.  You are
+welcome to report any issue you run into.
+
 * Installation
 
 Get the package, either from MELPA:
