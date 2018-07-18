@@ -295,6 +295,19 @@ works for message at point.  Suitable as a :before advice."
   (setq msg (or msg (mu4e-message-at-point)))
   (mu4e~view-construct-attachments-header msg))
 
+(defun mu4e-conversation-fill-paragraph (orig-fun &optional region)
+  "Like `mu4e-fill-paragraph' but also works on the composition area."
+  (interactive)
+  (if (mu4e-conversation--buffer-p)
+      (let ((start (save-excursion (goto-char (point-max))
+                                   (mu4e-conversation-previous-message)
+                                   (next-line)
+                                   (point))))
+        (save-restriction
+          (narrow-to-region start (point-max))
+          (apply orig-fun region)))
+    (apply orig-fun region)))
+
 (defun mu4e-conversation-previous-message (&optional count)
   "Go to previous message in linear view.
 With numeric prefix argument or if COUNT is given, move that many
@@ -1344,18 +1357,24 @@ in existing view buffers. "
         (advice-add 'mu4e-get-view-buffer :override 'mu4e-conversation--get-buffer)
         (advice-add 'mu4e~headers-redraw-get-view-window :override 'mu4e-conversation--headers-redraw-get-view-window)
         (advice-add 'mu4e~proc-filter :override 'mu4e-conversation--proc-filter)
+        ;; Some commands need specialization:
         (advice-add 'mu4e-view-save-attachment-multi :before 'mu4e-conversation-set-attachment)
         (advice-add 'mu4e-view-save-attachment-single :before 'mu4e-conversation-set-attachment)
         (advice-add 'mu4e-view-open-attachment :before 'mu4e-conversation-set-attachment)
+        (advice-add 'mu4e-fill-paragraph :around 'mu4e-conversation-fill-paragraph)
+        ;; Live-update the buffer:
         (advice-add mu4e-update-func :after 'mu4e-conversation--update-handler-extra)
         (add-hook 'mu4e-index-updated-hook 'mu4e-conversation--query-new)
         (advice-add mu4e-view-func :override 'mu4e-conversation))
     (advice-remove 'mu4e-get-view-buffer 'mu4e-conversation--get-buffer)
     (advice-remove 'mu4e~headers-redraw-get-view-window 'mu4e-conversation--headers-redraw-get-view-window)
     (advice-remove 'mu4e~proc-filter 'mu4e-conversation--proc-filter)
+    ;; De-specialize.
     (advice-remove 'mu4e-view-save-attachment-multi 'mu4e-conversation-set-attachment)
     (advice-remove 'mu4e-view-save-attachment-single 'mu4e-conversation-set-attachment)
     (advice-remove 'mu4e-view-open-attachment 'mu4e-conversation-set-attachment)
+    (advice-remove 'mu4e-fill-paragraph 'mu4e-conversation-fill-paragraph)
+    ;; Remove live-updates.
     (advice-remove mu4e-update-func 'mu4e-conversation--update-handler-extra)
     (remove-hook 'mu4e-index-updated-hook 'mu4e-conversation--query-new)
     (advice-remove mu4e-view-func 'mu4e-conversation)
