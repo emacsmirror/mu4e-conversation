@@ -313,11 +313,17 @@ messages.  A negative COUNT goes backwards."
   (if (eq major-mode 'org-mode)
       (org-next-visible-heading count)
     (let ((move-function (if (< count 0)
-                             'previous-single-char-property-change
-                           'next-single-char-property-change)))
+                             ;; Don't use `next-single-char-property-change' or
+                             ;; else it would stop at flyspell's highlights, for
+                             ;; instance.
+                             'previous-single-property-change
+                           'next-single-property-change))
+          (limit (if (< count 0)
+                     (point-min)
+                   (point-max))))
       (setq count (abs count))
       (dotimes (_ count)
-        (while (and (goto-char (funcall move-function (point) 'face))
+        (while (and (goto-char (funcall move-function (point) 'face nil limit))
                     (not (eq (get-text-property (point) 'face) 'mu4e-conversation-header))
                     (not (eobp))))))))
 
