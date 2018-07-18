@@ -119,10 +119,12 @@ across major mode change.")
   (when mu4e-conversation--thread-buffer-hash
     (gethash buffer mu4e-conversation--thread-buffer-hash)))
 
-(defvar mu4e-conversation-print-function 'mu4e-conversation-print-linear
-  "Function that insert the formatted content of a message in the current buffer.
-The argument is the message index in `mu4e-conversation--thread',
-counting from 0.")
+(defcustom mu4e-conversation-print-function 'mu4e-conversation-print-linear
+  "Function that formats and inserts the content of a message in the current buffer.
+The argument is the message index in the thread, counting from 0."
+  :type '(choice (function :tag "Linear display" mu4e-conversation-print-linear)
+                 (function :tag "Tree display" mu4e-conversation-print-tree))
+  :group 'mu4e-conversation)
 
 (defgroup mu4e-conversation nil
   "Settings for the mu4e conversation view."
