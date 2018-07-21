@@ -855,16 +855,19 @@ mu4e message as argument."
     (mu4e-warn "(cite) Not a conversation buffer"))
   (if (not (use-region-p))
       (mu4e-scroll-up)                  ; TODO: Call function associate to `this-command-key' in mu4e-view-mode / org-mode.
-    (let ((text (buffer-substring-no-properties start end))
+    (let ((text (replace-regexp-in-string
+                 "\n+$" ""
+                 (buffer-substring-no-properties start end)))
           (mu4e-conversation-use-citation-line (if toggle-citation-line
                                              (not mu4e-conversation-use-citation-line)
                                            mu4e-conversation-use-citation-line))
           (msg (mu4e-message-at-point)))
       (save-excursion
         (goto-char (point-max))
-        (backward-char)
+        (newline 2)
+        (delete-blank-lines)
+        (newline)
         (insert
-         "\n\n"
          (if (and mu4e-conversation-use-citation-line msg)
              (funcall mu4e-conversation-citation-line-function msg)
            "")
