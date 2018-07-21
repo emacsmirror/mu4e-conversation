@@ -581,6 +581,15 @@ If PRINT-FUNCTION is nil, use `mu4e-conversation-print-function'."
                   thread-headers-sorted (funcall filter thread-headers-sorted))))
         (erase-buffer)
         (delete-all-overlays)
+        (if (eq print-function 'mu4e-conversation-print-linear)
+            (progn
+              (mu4e-view-mode)
+              (read-only-mode 0)
+              (use-local-map (make-composed-keymap mu4e-conversation-map mu4e-compose-mode-map)))
+          (insert "#+SEQ_TODO: UNREAD READ NEW\n\n")
+          (org-mode)
+          (erase-buffer) ; TODO: Is it possible to set `org-todo-keywords' locally without this workaround?
+          (use-local-map (make-composed-keymap mu4e-conversation-map org-mode-map)))
         (dolist (msg thread-content-sorted)
           (if (member 'draft (mu4e-message-field msg :flags))
               (push msg draft-messages)
@@ -737,10 +746,6 @@ E-mails whose sender is in `mu4e-user-mail-address-list' are skipped."
 
 (defun mu4e-conversation-print-linear (index thread-content &optional _thread-headers)
   "Insert formatted message found at INDEX in THREAD-CONTENT."
-  (unless (eq major-mode 'mu4e-view-mode)
-    (mu4e-view-mode)
-    (read-only-mode 0)
-    (use-local-map (make-composed-keymap mu4e-conversation-map mu4e-compose-mode-map)))
   (let* ((msg (nth index thread-content))
          (from (car (mu4e-message-field msg :from)))
          (from-me-p (member (cdr from) mu4e-user-mail-address-list))
@@ -784,12 +789,6 @@ The list is in the following format:
 
 (defun mu4e-conversation-print-tree (index thread-content thread-headers)
   "Insert Org-formatted message found at INDEX in THREAD-CONTENT."
-  (unless (eq major-mode 'org-mode)
-    (insert "#+SEQ_TODO: UNREAD READ NEW\n\n")
-    (org-mode)
-    (erase-buffer) ; TODO: Is it possible to set `org-todo-keywords' locally without this workaround?
-    (use-local-map (make-composed-keymap mu4e-conversation-map
-                                         org-mode-map)))
   (let* ((msg (nth index thread-content))
          (msg-header (nth index thread-headers))
          (level (plist-get (mu4e-message-field msg-header :thread) :level))
