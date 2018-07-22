@@ -301,7 +301,7 @@ works for message at point.  Suitable as a :before advice."
   (if (mu4e-conversation--buffer-p)
       (let ((start (save-excursion (goto-char (point-max))
                                    (mu4e-conversation-previous-message)
-                                   (next-line)
+                                   (forward-line)
                                    (point))))
         (save-restriction
           (narrow-to-region start (point-max))
