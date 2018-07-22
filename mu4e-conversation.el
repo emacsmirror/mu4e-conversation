@@ -1275,6 +1275,13 @@ See `mu4e-conversation--enqueue' to add a transaction."
                       (length mu4e-conversation--transaction-queue))
             (mu4e-conversation--proc-filter nil ""))))))))
 
+(defun mu4e-conversation--proc-start-reset ()
+  "Call before `mu4e~proc-start' to make sure the transaction queue is clean when starting.
+This is useful when we restart the server.
+Suitable as a :before advice"
+  (setq mu4e-conversation--transaction-running nil)
+  (setq mu4e-conversation--transaction-queue nil))
+
 (defun mu4e-conversation--query-thread (query-function query &optional message show-thread include-related)
   (setq message (or message (mu4e-message-at-point 'noerror)))
   (let ((count 0)
@@ -1359,6 +1366,7 @@ in existing view buffers. "
         (advice-add 'mu4e-get-view-buffer :override 'mu4e-conversation--get-buffer)
         (advice-add 'mu4e~headers-redraw-get-view-window :override 'mu4e-conversation--headers-redraw-get-view-window)
         (advice-add 'mu4e~proc-filter :override 'mu4e-conversation--proc-filter)
+        (advice-add 'mu4e~proc-start :before 'mu4e-conversation--proc-start-reset)
         ;; Some commands need specialization:
         (advice-add 'mu4e-view-save-attachment-multi :before 'mu4e-conversation-set-attachment)
         (advice-add 'mu4e-view-save-attachment-single :before 'mu4e-conversation-set-attachment)
@@ -1371,6 +1379,7 @@ in existing view buffers. "
     (advice-remove 'mu4e-get-view-buffer 'mu4e-conversation--get-buffer)
     (advice-remove 'mu4e~headers-redraw-get-view-window 'mu4e-conversation--headers-redraw-get-view-window)
     (advice-remove 'mu4e~proc-filter 'mu4e-conversation--proc-filter)
+    (advice-remove 'mu4e~proc-start 'mu4e-conversation--proc-start-reset)
     ;; De-specialize.
     (advice-remove 'mu4e-view-save-attachment-multi 'mu4e-conversation-set-attachment)
     (advice-remove 'mu4e-view-save-attachment-single 'mu4e-conversation-set-attachment)
