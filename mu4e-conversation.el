@@ -855,7 +855,9 @@ mu4e message as argument."
   (if (not (use-region-p))
       (mu4e-scroll-up)                  ; TODO: Call function associate to `this-command-key' in mu4e-view-mode / org-mode.
     (let ((text (replace-regexp-in-string
-                 (rx (1+ "\n") string-end) ""
+                 (rx (or (group (1+ "\n") string-end)
+                         (group string-start (1+ "\n"))))
+                 ""
                  (buffer-substring-no-properties start end)))
           (mu4e-conversation-use-citation-line (if toggle-citation-line
                                              (not mu4e-conversation-use-citation-line)
