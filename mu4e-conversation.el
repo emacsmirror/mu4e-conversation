@@ -930,7 +930,9 @@ This is a helper function for operations such as saving and sending."
                                  (point)
                                (forward-line -2)
                                (point))))
-    (insert body)))
+    (insert
+     ;; Ensure there is a newline between body and signature.
+     (replace-regexp-in-string "\n*$" "\n" body))))
 
 (defun mu4e-conversation-send (&optional msg)
   "Send message at the end of the view buffer.
