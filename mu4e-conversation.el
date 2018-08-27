@@ -1,9 +1,9 @@
 ;;; mu4e-conversation.el --- Show a complete thread in a single buffer -*- lexical-binding: t -*-
 
-;; Copyright (C) 2018 Pierre Neidhardt <ambrevar@gmail.com>
+;; Copyright (C) 2018 Pierre Neidhardt <mail@ambrevar.xyz>
 
-;; Author: Pierre Neidhardt <ambrevar@gmail.com>
-;; Maintainer: Pierre Neidhardt <ambrevar@gmail.com>
+;; Author: Pierre Neidhardt <mail@ambrevar.xyz>
+;; Maintainer: Pierre Neidhardt <mail@ambrevar.xyz>
 ;; URL: https://gitlab.com/Ambrevar/mu4e-conversation
 ;; Version: 0.0.1
 ;; Package-Requires: ((emacs "25.1"))
