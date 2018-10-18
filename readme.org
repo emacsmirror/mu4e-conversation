@@ -11,6 +11,8 @@ welcome to report any issue you run into.
 
 * Installation
 
+[[http://www.djcbsoftware.nl/code/mu/][mu4e]] 1.0 or above is required.
+
 Get the package, either from MELPA:
 
 : M-x package-install RET mu4e-conversation RET
