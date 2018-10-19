@@ -1397,7 +1397,9 @@ in existing view buffers. "
 
 (defun mu4e-conversation--turn-on ()
   "Turn on `mu4e-conversation-mode'."
-  (mu4e-conversation-mode))
+  (mu4e-conversation-mode)
+  (unless (fboundp 'mu4e-view-mode)
+    (mu4e~view-define-mode)))
 
 (define-globalized-minor-mode global-mu4e-conversation-mode mu4e-conversation-mode mu4e-conversation--turn-on
   :require 'mu4e-conversation)
