@@ -667,6 +667,8 @@ If PRINT-FUNCTION is nil, use `mu4e-conversation-print-function'."
           ;; Restore point.
           (mu4e-conversation--goto-line current-message line)
           (move-to-column column))
+        ;; Set signature or commands like `message-insert-signature' won't work.
+        (set (make-local-variable 'message-signature) mu4e-compose-signature)
         (run-hooks 'mu4e-conversation-hook)))))
 
 (defun mu4e-conversation--get-message-face (index thread)
