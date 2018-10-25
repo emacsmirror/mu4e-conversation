@@ -206,42 +206,42 @@ For example, use it to enable spell-checking:
   :group 'mu4e-conversation)
 
 (defface mu4e-conversation-sender-1
-  `((t :foreground ,(face-foreground 'outline-1)))
+  `((t :foreground ,(face-foreground 'outline-1 nil 'inherit)))
   "Face for conversation message from the 1st sender who is not yourself."
   :group 'mu4e-conversation)
 
 (defface mu4e-conversation-sender-2
-  `((t :foreground ,(face-foreground 'outline-2)))
+  `((t :foreground ,(face-foreground 'outline-2 nil 'inherit)))
   "Face for conversation message from the 2rd sender who is not yourself."
   :group 'mu4e-conversation)
 
 (defface mu4e-conversation-sender-3
-  `((t :foreground ,(face-foreground 'outline-3)))
+  `((t :foreground ,(face-foreground 'outline-3 nil 'inherit)))
   "Face for conversation message from the 3rd sender who is not yourself."
   :group 'mu4e-conversation)
 
 (defface mu4e-conversation-sender-4
-  `((t :foreground ,(face-foreground 'outline-4)))
+  `((t :foreground ,(face-foreground 'outline-4 nil 'inherit)))
   "Face for conversation message from the 4th sender who is not yourself."
   :group 'mu4e-conversation)
 
 (defface mu4e-conversation-sender-5
-  `((t :foreground ,(face-foreground 'outline-5)))
+  `((t :foreground ,(face-foreground 'outline-5 nil 'inherit)))
   "Face for conversation message from the 5th sender who is not yourself."
   :group 'mu4e-conversation)
 
 (defface mu4e-conversation-sender-6
-  `((t :foreground ,(face-foreground 'outline-6)))
+  `((t :foreground ,(face-foreground 'outline-6 nil 'inherit)))
   "Face for conversation message from the 6th sender who is not yourself."
   :group 'mu4e-conversation)
 
 (defface mu4e-conversation-sender-7
-  `((t :foreground ,(face-foreground 'outline-7)))
+  `((t :foreground ,(face-foreground 'outline-7 nil 'inherit)))
   "Face for conversation message from the 7th sender who is not yourself."
   :group 'mu4e-conversation)
 
 (defface mu4e-conversation-sender-8
-  `((t :foreground ,(face-foreground 'outline-8)))
+  `((t :foreground ,(face-foreground 'outline-8 nil 'inherit)))
   "Face for conversation message from the 8th sender who is not yourself."
   :group 'mu4e-conversation)
 
