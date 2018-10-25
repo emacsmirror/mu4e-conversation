@@ -1399,6 +1399,8 @@ in existing view buffers. "
     (advice-remove mu4e-view-func 'mu4e-conversation)
     (setq kill-buffer-query-functions (delq 'mu4e-conversation-kill-buffer-query-function kill-buffer-query-functions))))
 
+;; mu4e >1.0 has this function.
+(declare-function mu4e~view-define-mode "mu4e-view")
 (defun mu4e-conversation--turn-on ()
   "Turn on `mu4e-conversation-mode'."
   (mu4e-conversation-mode)
