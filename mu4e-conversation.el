@@ -827,6 +827,7 @@ The list is in the following format:
       (replace-match "#+end_src
 "))
     (goto-char (point-max))
+    (org-set-property "Maildir" (mu4e-message-field msg :maildir))
     (org-set-property "To" (mu4e-conversation--format-address-list
                             (mu4e-message-field msg :to)))
     (when (mu4e-message-field msg :cc)
