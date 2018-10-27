@@ -164,7 +164,7 @@ For example, if you use a remote SMTP server you might want to
 immediately sync the \"sent mail\" folder so that it appears in
 the conversation buffer.
 
-Say you are using mbync configured with a \"sent-mail-channel\":
+Say you are using \"mbsync\" configured with a \"sent-mail-channel\":
 
   (add-hook
    'mu4e-conversation-after-send-hook
