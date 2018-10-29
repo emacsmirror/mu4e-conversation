@@ -525,6 +525,10 @@ mu4e-conversation-buffer-name-format title) and create it if necessary.
         ;; If point meets an Org property block, skip it at once.
         (goto-char end)))))
 
+(defvar mu4e-conversation--separator "Compose new message:"
+  "The text displayed between the comversation and the
+  composition area.")
+
 ;; TODO: Restore draft in composition area.
 (defun mu4e-conversation--print (thread &optional print-function)
   "Print the conversation in the buffer associated to the THREAD.
@@ -606,7 +610,8 @@ If PRINT-FUNCTION is nil, use `mu4e-conversation-print-function'."
             (insert (propertize "\n" 'msg msg)) ; Insert a final newline after potential images.
             (goto-char (point-max)))
           (setq index (1+ index)))
-        (insert (propertize (format "%sCompose new message:" (if (eq major-mode 'org-mode) "* NEW " ""))
+        (insert (propertize (format "%s%s" (if (eq major-mode 'org-mode) "* NEW " "")
+                                    mu4e-conversation--separator)
                             'face 'mu4e-conversation-header 'read-only t)
                 (propertize "\n"
                             'face 'mu4e-conversation-header
@@ -669,6 +674,11 @@ If PRINT-FUNCTION is nil, use `mu4e-conversation-print-function'."
           (move-to-column column))
         ;; Set signature or commands like `message-insert-signature' won't work.
         (set (make-local-variable 'message-signature) mu4e-compose-signature)
+        ;; We need to set `mail-header-separator' to ensure `mml-*' commands
+        ;; work.
+        (set (make-local-variable 'mail-header-separator)
+             (format "%s%s" (if (eq major-mode 'org-mode) "* NEW " "")
+                     mu4e-conversation--separator))
         (run-hooks 'mu4e-conversation-hook)))))
 
 (defun mu4e-conversation--get-message-face (index thread)
@@ -982,7 +992,13 @@ This is a helper function for operations such as saving and sending."
     (mu4e~draft-insert-mail-header-separator)
     (mu4e-compose-mode)
     (message-goto-body)
-    (forward-line) ; Skip MML line.  TODO: This is brittle, MML line is not necessarily on the first line.
+    (when (looking-at "<#secure")
+      (when (string-match "^<#secure" body)
+        ;; If body has a <#secure...> MML line, use it instead of the possibly
+        ;; existing one.
+        (kill-whole-line))
+      ;; Keep existing MML line.
+      (forward-line))
     ;; Delete citation:
     (delete-region (point) (save-excursion
                              (message-goto-signature)
