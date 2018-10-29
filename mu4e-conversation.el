@@ -852,8 +852,19 @@ current buffer."
     ;; Body
     (goto-char (point-max))
     (setq body-start (point))
-    ;; TODO: Propertize HTML links.
     (insert (mu4e-message-body-text msg))
+    ;; Turn shr-url into Org links.
+    (goto-char body-start)
+    (let (begin end url text)
+      (while (and (not (eobp))
+                  (setq begin (next-single-char-property-change (point) 'shr-url))
+                  (get-text-property begin 'shr-url))
+        (goto-char begin)
+        (setq url (get-text-property (point) 'shr-url)
+              end (next-single-char-property-change (point) 'shr-url)
+              text (buffer-substring-no-properties begin end))
+        (delete-region begin end)
+        (insert (format "[[%s][%s]]" url text))))
     ;; Prefix "*" at the beginning of lines with a space to prevent them
     ;; from being interpreted as Org sections.
     (goto-char body-start)
