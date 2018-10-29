@@ -791,6 +791,48 @@ The list is in the following format:
    address-list
    ", "))
 
+(defcustom mu4e-conversation--use-org-quote-blocks nil
+  "If non-nil, display quoted text as Org quote blocks.
+If nil, prefix quoted text with ':'."
+  :type 'boolean
+  :group 'mu4e-conversation)
+
+(defun mu4e-conversation--format-org-quote-blocks (body-start)
+  "Turn all \">\"-prefixed quotes into Org quote blocks in
+current buffer."
+  (save-excursion
+    (goto-char body-start)
+    (while (not (eobp))
+      (when (= (char-after) ?>)
+        (delete-char 1)
+        (when (= (char-after) ? )
+          (delete-char 1))
+        (beginning-of-line)
+        (insert "#+begin_quote")
+        (newline)
+        (if (looking-at "[ \t]*$")
+            (delete-blank-lines)
+          (forward-line))
+        (while (and (not (eobp))
+                    (or (= (char-after) ?>)
+                        (looking-at "[ \t]*$")))
+          (when (= (char-after) ?>)
+            (delete-char 1)
+            (when (= (char-after) ? )
+              (delete-char 1)))
+          (forward-line))
+        ;; Go back to first non-empty line.
+        (forward-line -1)
+        (while (looking-at "[ \t]*$")
+          (forward-line -1))
+        (forward-line)
+        (insert "#+end_quote")
+        (newline)
+        (when (looking-at "[ \t]*$")
+          (delete-blank-lines))
+        (newline))
+      (forward-line))))
+
 (defun mu4e-conversation-print-tree (index thread-content thread-headers)
   "Insert Org-formatted message found at INDEX in THREAD-CONTENT."
   (let* ((msg (nth index thread-content))
@@ -817,7 +859,9 @@ The list is in the following format:
     (goto-char body-start)
     (while (re-search-forward (rx line-start "*") nil t) (replace-match " *"))
     (goto-char body-start)
-    (while (re-search-forward (rx line-start ">" (? blank)) nil t) (replace-match ": "))
+    (if mu4e-conversation--use-org-quote-blocks
+        (mu4e-conversation--format-org-quote-blocks body-start)
+        (while (re-search-forward (rx line-start ">" (?  blank)) nil t) (replace-match ": ")))
     (goto-char body-start)
     (while (re-search-forward (concat "^" message-mark-insert-begin) nil t)
       (replace-match "#+begin_src
