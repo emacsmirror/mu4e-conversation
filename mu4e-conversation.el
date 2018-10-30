@@ -993,12 +993,12 @@ This is a helper function for operations such as saving and sending."
     (mu4e-compose-mode)
     (message-goto-body)
     (when (looking-at "<#secure")
-      (when (string-match "^<#secure" body)
-        ;; If body has a <#secure...> MML line, use it instead of the possibly
-        ;; existing one.
-        (kill-whole-line))
-      ;; Keep existing MML line.
-      (forward-line))
+      (if (string-match "^<#secure" body)
+          ;; If body has a <#secure...> MML line, use it instead of the possibly
+          ;; existing one.
+          (kill-whole-line)
+        ;; Keep existing MML line.
+        (forward-line)))
     ;; Delete citation:
     (delete-region (point) (save-excursion
                              (message-goto-signature)
