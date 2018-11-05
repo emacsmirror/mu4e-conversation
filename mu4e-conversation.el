@@ -1490,18 +1490,22 @@ in existing view buffers. "
   (setq msg (or msg (mu4e-message-at-point)))
   (unless msg
     (mu4e-warn "No message at point"))
-  (let ((thread (and mu4e-conversation--thread-buffer-hash
-                     (gethash (mu4e-conversation--find-buffer msg)
-                              mu4e-conversation--thread-buffer-hash))))
-    (if (not thread)
-        (mu4e-conversation--query-thread 'mu4e-conversation--show
-                                         (format "msgid:%s"
-                                                 (mu4e-message-field msg :message-id))
-                                         msg
-                                         'show-thread
-                                         'include-related)
-      (setf (mu4e-conversation-thread-current-docid thread) (mu4e-message-field msg :docid))
-      (mu4e-conversation--switch-to-buffer thread))))
+  (if (and msg (gethash (mu4e-message-field msg :path)
+                        mu4e~path-parent-docid-map))
+      ;; If msg is embedded, use vanilla `mu4e-view'.
+      (mu4e-view msg)
+    (let ((thread (and mu4e-conversation--thread-buffer-hash
+                       (gethash (mu4e-conversation--find-buffer msg)
+                                mu4e-conversation--thread-buffer-hash))))
+      (if (not thread)
+          (mu4e-conversation--query-thread 'mu4e-conversation--show
+                                           (format "msgid:%s"
+                                                   (mu4e-message-field msg :message-id))
+                                           msg
+                                           'show-thread
+                                           'include-related)
+        (setf (mu4e-conversation-thread-current-docid thread) (mu4e-message-field msg :docid))
+        (mu4e-conversation--switch-to-buffer thread)))))
 
 (provide 'mu4e-conversation)
 ;;; mu4e-conversation.el ends here
