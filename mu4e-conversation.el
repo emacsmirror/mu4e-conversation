@@ -410,7 +410,9 @@ If NO-CONFIRM is nil, ask for confirmation if message was not saved."
   (with-temp-buffer
     (insert (mu4e-message-body-text message))
     (goto-char (point-min))
-    (kill-whole-line) ; Skip MML line.  TODO: This is brittle, MML line is not necessarily on the first line.
+    (when (looking-at "<#secure")
+      ;; Discard MML line.
+      (kill-whole-line))
     (message-goto-signature)
     (unless (eobp)
       (forward-line -1)
