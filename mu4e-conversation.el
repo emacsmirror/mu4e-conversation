@@ -282,7 +282,12 @@ If less than 0, don't limit the number of colors."
   (unless (mu4e-conversation--buffer-p)
     (mu4e-warn "(fill-long-lines) Not a conversation buffer"))
   (let ((modified-p (buffer-modified-p))
-        (mu4e~view-buffer-name (buffer-name)))
+        (mu4e~view-buffer-name (buffer-name))
+        ;; We set mail-header-separator buffer-locally to separate the
+        ;; conversation from the composition area, but that changes how
+        ;; (message-goto-body-1) behaves for this function.  It should not match
+        ;; anything here.
+        (mail-header-separator (default-value 'mail-header-separator)))
     (set-buffer-modified-p nil)         ; Don't warn if modified.
     (mu4e-view-fill-long-lines)
     (set-buffer-modified-p modified-p)))
