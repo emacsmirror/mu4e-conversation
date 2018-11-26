@@ -52,7 +52,8 @@
 ;;
 ;; When the region is active anywhere in the thread, `mu4e-conversation-cite'
 ;; ("<return>" by default) will append the selected text as citation to the
-;; message being composed.
+;; message being composed.  With prefix argument, the author name will be
+;; prepended.
 ;;
 ;; Each conversation gets its own buffer.
 

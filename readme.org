@@ -41,7 +41,7 @@ Call ~mu4e-conversation-send~ (=C-c C-c= by default) to send the message.
 
 When the region is active anywhere in the thread, ~mu4e-conversation-cite~
 (=<return>= by default) will append the selected text as citation to the message
-being composed.
+being composed.  With prefix argument, the author name will be prepended.
 
 Each conversation gets its own buffer.
 
