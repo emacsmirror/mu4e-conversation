@@ -260,6 +260,9 @@ If less than 0, don't limit the number of colors."
 (defvar mu4e-conversation-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-c") 'mu4e-conversation-send)
+    ;; Bind message-mark-inserted-region because I like it and otherwise it's
+    ;; not available in Org mode.
+    (define-key map (kbd "C-c M-m") 'message-mark-inserted-region)
     (define-key map (kbd "C-x C-s") 'mu4e-conversation-save)
     (define-key map (kbd "C-c C-p") 'mu4e-conversation-previous-message)
     (define-key map (kbd "C-c C-n") 'mu4e-conversation-next-message)
