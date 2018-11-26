@@ -1030,6 +1030,7 @@ call of this function."
   (unless (mu4e-conversation--buffer-p)
     (mu4e-warn "(send) Not a conversation buffer"))
   (let (draft-buf
+        (buf (current-buffer))
         (mu4e-compose-signature mu4e-compose-signature)
         (mu4e-compose-keep-self-cc mu4e-compose-keep-self-cc)
         (mu4e-compose-format-flowed mu4e-compose-format-flowed)
@@ -1050,8 +1051,13 @@ call of this function."
         ;; Stay in draft buffer and widen in case we failed during header check.
         (error (setq draft-buf (current-buffer))
                (widen))))
-    (if draft-buf
-        (switch-to-buffer draft-buf)
+    (cond
+     (draft-buf
+      (switch-to-buffer draft-buf))
+     (message-kill-buffer-on-exit
+      (switch-to-buffer buf)
+      (mu4e-conversation-quit 'no-confirm))
+     (t
       ;; Delete message that was just sent.
       (goto-char (point-max))
       (mu4e-conversation-previous-message)
@@ -1063,7 +1069,9 @@ call of this function."
                    'face 'mu4e-conversation-header
                    'rear-nonsticky t))
       (set-buffer-modified-p nil)
-      (run-hooks 'mu4e-conversation-after-send-hook))))
+      ;; -after-send-hook can be used to update the conversation buffer so that
+      ;; it includes the message that was just sent.
+      (run-hooks 'mu4e-conversation-after-send-hook)))))
 
 ;; TODO: Can we do better than a global?  We could use `mu4e-get-view-buffer'
 ;; but that would only work if the buffer has not been renamed.  With
