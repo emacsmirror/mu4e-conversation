@@ -91,6 +91,7 @@
 (require 'org)
 (require 'subr-x)
 (require 'cl-lib)
+(require 'shr)
 
 ;; TODO: Merge headers and content into "messages".  Need ":thread" from headers.
 ;; (plist-get (mu4e-message-field msg-header :thread) :level)
