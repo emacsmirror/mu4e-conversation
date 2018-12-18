@@ -1499,6 +1499,7 @@ in existing view buffers. "
   (unless (fboundp 'mu4e-view-mode)
     (mu4e~view-define-mode)))
 
+;;;###autoload
 (define-globalized-minor-mode global-mu4e-conversation-mode mu4e-conversation-mode mu4e-conversation--turn-on
   :require 'mu4e-conversation)
 
