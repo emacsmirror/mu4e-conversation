@@ -1049,7 +1049,10 @@ call of this function."
     (save-window-excursion
       (mu4e-conversation--open-draft msg)
       (condition-case nil
-          (message-send-and-exit)
+          ;; Force-kill DRAFT-BUF on succcess since it's an implementation
+          ;; detail in mu4e-conversation and the composition area is in BUF.
+          (let ((message-kill-buffer-on-exit t))
+            (message-send-and-exit))
         ;; Stay in draft buffer and widen in case we failed during header check.
         (error (setq draft-buf (current-buffer))
                (widen))))
