@@ -1022,6 +1022,11 @@ This is a helper function for operations such as saving and sending."
      ;; Ensure there is a newline between body and signature.
      (replace-regexp-in-string "\n*$" "\n" body))))
 
+(defcustom mu4e-conversation-kill-buffer-on-exit nil
+  "If non-nil, kill the conversation buffer after sending a message."
+  :type 'boolean
+  :group 'mu4e-conversation)
+
 (defun mu4e-conversation-send (&optional msg)
   "Send message at the end of the view buffer.
 If MSG is specified, then send this message instead.
@@ -1059,7 +1064,7 @@ call of this function."
     (cond
      (draft-buf
       (switch-to-buffer draft-buf))
-     (message-kill-buffer-on-exit
+     (mu4e-conversation-kill-buffer-on-exit
       (switch-to-buffer buf)
       (mu4e-conversation-quit 'no-confirm))
      (t
