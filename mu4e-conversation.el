@@ -591,7 +591,7 @@ If PRINT-FUNCTION is nil, use `mu4e-conversation-print-function'."
                   'mu4e-conversation-print-linear)
           ;; In linear view, it makes more sense to sort messages chronologically.
           (let ((filter (lambda (seq)
-                          (sort (copy-seq seq)
+                          (sort (copy-sequence seq)
                                 (lambda (msg1 msg2)
                                   (time-less-p (mu4e-message-field msg1 :date)
                                                (mu4e-message-field msg2 :date)))))))
