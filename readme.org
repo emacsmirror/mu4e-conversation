@@ -1,5 +1,8 @@
 #+TITLE: mu4e-conversation
 
+*Warning:* As of 2021-01-06 this package is [[https://gitlab.com/ambrevar/mu4e-conversation/-/issues/18][broken]] since mu4e has made changes
+to its protocol.  [[https://gitlab.com/ambrevar/mu4e-conversation/-/issues/19][New maintainer wanted!]].
+
 This package offers an alternate view to [[http://www.djcbsoftware.nl/code/mu/][mu4e]] e-mail display.  It shows all
 e-mails of a thread in a single view, where each correspondant has their own
 face.  Threads can be displayed linearly (in which case e-mails are displayed
